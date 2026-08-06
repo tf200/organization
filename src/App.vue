@@ -1,49 +1,42 @@
-<template>
-	<AppNavigation
-		:active-item="activeItem"
-		:show-plans="permissions.isGlobalAdmin"
-		:mode-label="modeLabel"
-		@update:activeItem="onNavigationChange" />
-
-	<OrganizationsView
-		v-if="activeItem === 'organizations'"
-		:permissions="permissions" />
-
-	<PlansView
-		v-else-if="activeItem === 'plans'" />
-
-	<SettingsView
-		v-else-if="activeItem === 'settings'" />
-</template>
-
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { loadState } from '@nextcloud/initial-state'
-import AppNavigation from './components/AppNavigation.vue'
-import OrganizationsView from './views/OrganizationsView.vue'
-import PlansView from './views/PlansView.vue'
-import SettingsView from './views/SettingsView.vue'
+import { onMounted, ref } from 'vue'
+import AppTabs from './components/AppTabs.vue'
+import type { TabKey } from './types'
 
-const activeItem = ref('organizations')
+/* This app is superadmin-only — PageController rejects everyone else — so
+   there is no permission branching, no mode chip and no conditional nav. */
 
-const settings = loadState('organization', 'settings', {
-	permissions: {
-		isGlobalAdmin: false,
-		isOrganizationAdmin: false,
-		organizationId: null,
-	},
-}) as any
+const VALID: TabKey[] = ['organizations', 'plans', 'trial']
+const activeTab = ref<TabKey>('organizations')
 
-const permissions = settings.permissions
-
-const modeLabel = computed(() => permissions.isGlobalAdmin ? 'Global Admin Mode' : 'Organization Admin Mode')
-
-const onNavigationChange = (item: string) => {
-	if ((item === 'plans' || item === 'settings') && !permissions.isGlobalAdmin) {
-		activeItem.value = 'organizations'
-		return
+onMounted(() => {
+	const stored = window.localStorage.getItem('organization:activeTab')
+	if (stored && (VALID as string[]).includes(stored)) {
+		activeTab.value = stored as TabKey
 	}
-
-	activeItem.value = item
-}
+})
 </script>
+
+<template>
+	<div class="org-dashboard iz-app">
+		<AppTabs v-model="activeTab" />
+
+		<section v-if="activeTab === 'organizations'" class="iz-panel">
+			<div class="iz-panel__header">
+				<h3 class="iz-panel__title">Organizations</h3>
+			</div>
+		</section>
+
+		<section v-else-if="activeTab === 'plans'" class="iz-panel">
+			<div class="iz-panel__header">
+				<h3 class="iz-panel__title">Plans</h3>
+			</div>
+		</section>
+
+		<section v-else class="iz-panel">
+			<div class="iz-panel__header">
+				<h3 class="iz-panel__title">Trial defaults</h3>
+			</div>
+		</section>
+	</div>
+</template>

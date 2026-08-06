@@ -1,0 +1,31 @@
+/* The one unscoped stylesheet in this app.
+ *
+ * Scope: the page container and nothing else. It sets the page backdrop, the
+ * base text colour and the base font — all from tokens, matching the container
+ * block in adminpage, superadminpage and employee_dashboard.
+ *
+ * It must never set component chrome: no borders, no shadows, no radii, no
+ * font sizes, and no literal colour values. Those come from .iz-* primitives
+ * in the theme. See USING-THE-THEME.md §3.
+ */
+
+.org-dashboard {
+	background: var(--bg-page);
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: var(--spacing-lg);
+	font-family: 'Inter', system-ui, -apple-system, sans-serif;
+	color: var(--color-text-primary);
+
+	/* One gap for stacked regions. Chosen over the per-panel margin-bottom
+	   adminpage and employee_dashboard use, which has already drifted between
+	   --spacing-lg and --spacing-xl between siblings. */
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-lg);
+}
+
+/* Nextcloud pads #content; the dashboard does its own padding. */
+#content:has(.org-dashboard) {
+	background: var(--image-background);
+}

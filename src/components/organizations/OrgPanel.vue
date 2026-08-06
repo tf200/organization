@@ -159,16 +159,22 @@ defineExpose({ reload: () => list.run() })
 	border-bottom: 1px solid var(--iz-border);
 }
 
-/* .iz-input and .iz-select are width:100% — right for a stacked field,
-   wrong in a toolbar row. USING-THE-THEME.md §5. */
-.org-panel__search {
-	flex: 1;
-	min-width: 200px;
+/* .iz-input and .iz-select are width:100% in the theme — right for a stacked
+   field, wrong in a toolbar row (USING-THE-THEME.md §5).
+   These are qualified on the toolbar to reach (0,3,0). An unqualified
+   .org-panel__search would tie with .iz-app .iz-input at (0,2,0), and unlike
+   the webpack siblings this app's CSS is a linked file that Nextcloud loads
+   BEFORE the theme — so on a tie the theme wins here, not the app. */
+.org-panel__toolbar .org-panel__search {
+	flex: 1 1 220px;
+	min-width: 0;
 	width: auto;
 }
 
-.org-panel__filter {
+.org-panel__toolbar .org-panel__filter {
+	flex: 0 0 auto;
 	width: auto;
+	min-width: 150px;
 }
 
 .org-panel__body {

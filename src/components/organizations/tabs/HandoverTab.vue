@@ -107,7 +107,7 @@
 								class="job-row"
 								@click="viewJobDetails(job)">
 								<td>
-									<div :class="['status-badge', job.status]">
+									<div class="iz-pill" :class="statusTone(job.status)">
 										{{ job.status }}
 									</div>
 								</td>
@@ -159,7 +159,7 @@
 					Back to list
 				</IzButton>
 				<h2>Job #{{ selectedJob.jobId }} Details</h2>
-				<div :class="['status-badge', selectedJob.status]">
+				<div class="iz-pill" :class="statusTone(selectedJob.status)">
 					{{ selectedJob.status }}
 				</div>
 			</div>
@@ -533,6 +533,21 @@ const stopPolling = () => {
 	}
 }
 
+/**
+ * Explicit table, neutral fallback. The previous :class="['status-badge',
+ * job.status]" built a class name from data, so any status without a
+ * matching rule rendered unstyled.
+ */
+const STATUS_TONE: Record<string, string> = {
+	queued: 'iz-pill--muted',
+	running: 'iz-pill--accent',
+	completed: 'iz-pill--success',
+	failed: 'iz-pill--danger',
+	skipped: 'iz-pill--muted',
+}
+
+const statusTone = (status: string): string => STATUS_TONE[status] ?? 'iz-pill--muted'
+
 const formatStepName = (key: string) => {
 	const names: Record<string, string> = {
 		projectcreator: 'Project Creator Ownership Transfer',
@@ -695,22 +710,6 @@ watch(() => props.organization?.id, () => {
 .job-row:hover {
 	background-color: var(--color-background-hover);
 }
-
-.status-badge {
-	display: inline-block;
-	padding: 4px 10px;
-	border-radius: 999px;
-	font-size: 0.75rem;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-}
-
-.status-badge.queued { background-color: var(--color-background-dark); color: var(--color-text-maxcontrast); }
-.status-badge.running { background-color: var(--color-primary-light); color: var(--color-primary); }
-.status-badge.completed { background-color: var(--color-success-light); color: var(--color-success); }
-.status-badge.failed { background-color: var(--color-error-light); color: var(--color-error); }
-.status-badge.skipped { background-color: var(--color-background-dark); color: var(--color-text-maxcontrast); }
 
 .transfer-info {
 	display: flex;

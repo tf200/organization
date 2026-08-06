@@ -111,10 +111,12 @@ async function toggle(id: number) {
 	border-bottom: 1px solid var(--iz-border);
 }
 
-/* .iz-input is width:100% in the theme — wrong in a toolbar row. */
-.plan-panel__search {
-	flex: 1;
-	min-width: 200px;
+/* Qualified on the toolbar: an unqualified class ties with .iz-app .iz-input
+   at (0,2,0), and this app's CSS loads before the theme, so the theme wins
+   the tie. See OrgPanel for the full note. */
+.plan-panel__toolbar .plan-panel__search {
+	flex: 1 1 220px;
+	min-width: 0;
 	width: auto;
 }
 

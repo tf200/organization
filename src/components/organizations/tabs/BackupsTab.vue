@@ -93,8 +93,8 @@
 							<div class="job-info">
 								<div class="job-name-row">
 									<span class="job-name">Backup #{{ job.jobId }}</span>
-									<span class="type-badge">{{ formatBackupType(job.backupType) }}</span>
-									<span class="status-badge" :class="job.status">
+									<span class="iz-badge iz-badge--muted">{{ formatBackupType(job.backupType) }}</span>
+									<span class="iz-pill" :class="statusTone(job.status)">
 										{{ formatStatus(job.status) }}
 									</span>
 								</div>
@@ -247,7 +247,7 @@
 					<div class="rollback-main">
 						<div class="rollback-row">
 							<span class="rollback-name">Rollback #{{ job.jobId }}</span>
-							<span class="status-badge" :class="job.status">{{ formatStatus(job.status) }}</span>
+							<span class="iz-pill" :class="statusTone(job.status)">{{ formatStatus(job.status) }}</span>
 						</div>
 						<div class="rollback-meta">
 							<span>Mode: {{ job.mode === 'apply' ? 'Apply' : 'Dry-run' }}</span>
@@ -375,6 +375,24 @@ const downloadUrl = (jobId: number) => generateUrl(`/apps/organization/organizat
 
 function isActiveStatus(status: string): boolean {
 	return ['queued', 'running'].includes(status)
+}
+
+/**
+ * Explicit table, neutral fallback — never build a class from data. The old
+ * `.status-badge` + :class="job.status" pattern also emitted classes for
+ * statuses that have no rule (expired, deleted), which rendered unstyled.
+ */
+const STATUS_TONE: Record<string, string> = {
+	queued: 'iz-pill--muted',
+	running: 'iz-pill--accent',
+	completed: 'iz-pill--success',
+	failed: 'iz-pill--danger',
+	expired: 'iz-pill--warning',
+	deleted: 'iz-pill--muted',
+}
+
+function statusTone(status: string): string {
+	return STATUS_TONE[status] ?? 'iz-pill--muted'
 }
 
 function formatStatus(status: string): string {
@@ -899,77 +917,6 @@ onBeforeUnmount(() => {
 	font-weight: 600;
 	font-size: 0.95rem;
 	white-space: nowrap;
-}
-
-.status-badge {
-	font-size: 0.7rem;
-	font-weight: 700;
-	padding: 2px 8px 2px 7px;
-	border-radius: 999px;
-	border: 1px solid transparent;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-	white-space: nowrap;
-	display: inline-flex;
-	align-items: center;
-	gap: 5px;
-	color: var(--color-main-text);
-}
-
-.status-badge::before {
-	content: '';
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: currentColor;
-}
-
-.type-badge {
-	font-size: 0.68rem;
-	font-weight: 700;
-	padding: 2px 8px;
-	border-radius: 999px;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-	white-space: nowrap;
-	background: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
-}
-
-.status-badge.queued {
-	background: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
-	border-color: var(--color-border);
-}
-
-.status-badge.running {
-	background: rgba(var(--status-running-rgb), 0.1);
-	color: var(--color-main-text);
-	border-color: rgba(var(--status-running-rgb), 0.35);
-}
-
-.status-badge.completed {
-	background: rgba(var(--status-success-rgb), 0.1);
-	color: var(--color-main-text);
-	border-color: rgba(var(--status-success-rgb), 0.35);
-}
-
-.status-badge.failed {
-	background: rgba(var(--status-error-rgb), 0.1);
-	color: var(--color-main-text);
-	border-color: rgba(var(--status-error-rgb), 0.35);
-}
-
-.status-badge.running::before {
-	background: var(--color-primary);
-}
-
-.status-badge.completed::before {
-	background: var(--color-success);
-}
-
-.status-badge.failed::before {
-	background: var(--color-error);
 }
 
 .job-timestamps {

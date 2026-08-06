@@ -291,12 +291,19 @@ function onSubmit() {
 	align-items: center;
 }
 
-.trial__num {
-	flex: 1;
+/* The number carries the value, so it gets the room; the unit only ever says
+   MB or GB. Both qualified on .trial__pair to beat the theme's width:100% —
+   unqualified they tie at (0,2,0) and lose, which collapsed the number input
+   to 26px while the select stretched to 216px. */
+.trial__pair .trial__num {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: auto;
 }
 
-.trial__unit {
-	width: auto;
+.trial__pair .trial__unit {
+	flex: 0 0 5.5rem;
+	width: 5.5rem;
 }
 
 .trial__resolved {

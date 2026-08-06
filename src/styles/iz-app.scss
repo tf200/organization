@@ -25,7 +25,8 @@
 	gap: var(--spacing-lg);
 }
 
-/* Nextcloud pads #content; the dashboard does its own padding. */
-#content:has(.org-dashboard) {
+/* Matches the sibling apps: the backdrop goes on #app-content, which is the
+   flex child Nextcloud's layout sizes. */
+#app-content:has(.org-dashboard) {
 	background: var(--image-background);
 }

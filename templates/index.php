@@ -2,12 +2,16 @@
 /** @var $l \OCP\IL10N */
 /** @var $_ array */
 
-// `iz-app` is the In Zicht token bridge and the ancestor the .iz-* primitives
-// are scoped to. Without it the generic token names (--bg-card, --accent, …)
-// are undefined, and an undefined custom property invalidates the whole
-// declaration rather than falling back — colours silently vanish.
-// App.vue also carries the class on its own root; this is belt and braces for
-// anything rendered before Vue mounts. See USING-THE-THEME.md §2.
+// Nextcloud's layout already provides #content — declaring another one here
+// created a duplicate id, and because #content is a flex container the app
+// root became a shrink-to-fit flex item 316px narrower than its siblings.
+// Same structure as adminpage, superadminpage and employee_dashboard.
+//
+// `iz-app` lives on App.vue's root rather than here: Vue replaces the mount
+// element's contents, so a class set on the server-rendered node it mounts
+// into is not a reliable place for it.
 ?>
 
-<div id="content" class="iz-app"></div>
+<div id="app-content">
+	<div id="organization-root"></div>
+</div>

@@ -22,3 +22,10 @@ Thumbs.db
 
 # Playwright MCP output
 .playwright-mcp/
+
+# Working notes and design docs — kept locally, not shipped with the app.
+# AGENTS.md predates this and stays tracked.
+docs/
+CLAUDE.md
+HANDOVER.md
+REDESIGN_HANDOVER.md

@@ -14,7 +14,11 @@ composer.lock
 
 # PHP
 .phpunit.result.cache
+.phpunit.cache/
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Playwright MCP output
+.playwright-mcp/

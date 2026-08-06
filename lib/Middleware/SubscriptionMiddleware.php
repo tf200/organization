@@ -7,8 +7,8 @@ namespace OCA\Organization\Middleware;
 
 use DateTime;
 use DateTimeZone;
+use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Middleware;
-use OCP\AppFramework\Utility\IControllerMethodReflector;
 use OCP\IRequest;
 use OCP\IUserSession;
 use OCP\IGroupManager;
@@ -26,7 +26,6 @@ use OCA\Organization\Db\OrganizationMapper;
  */
 class SubscriptionMiddleware extends Middleware
 {
-    private IControllerMethodReflector $reflector;
     private IRequest $request;
     private IUserSession $userSession;
     private IGroupManager $groupManager;
@@ -34,14 +33,12 @@ class SubscriptionMiddleware extends Middleware
     private OrganizationMapper $organizationMapper;
 
     public function __construct(
-        IControllerMethodReflector $reflector,
         IRequest $request,
         IUserSession $userSession,
         IGroupManager $groupManager,
         SubscriptionMapper $subscriptionMapper,
         OrganizationMapper $organizationMapper
     ) {
-        $this->reflector = $reflector;
         $this->request = $request;
         $this->userSession = $userSession;
         $this->groupManager = $groupManager;
@@ -118,8 +115,18 @@ class SubscriptionMiddleware extends Middleware
      */
     private function isPublicRoute($controller, $methodName): bool
     {
-        if ($this->reflector->hasAnnotationOrAttribute('NoLoginRequired', \OCP\AppFramework\Http\Attribute\PublicPage::class)) {
-            return true;
+        // Nextcloud 34 removed IControllerMethodReflector::hasAnnotationOrAttribute();
+        // the interface now exposes only hasAnnotation() and getAnnotationParameter().
+        // Read the attribute directly instead — that also drops the dependency on the
+        // reflector having been primed by a preceding reflect() call.
+        try {
+            $method = new \ReflectionMethod($controller, $methodName);
+            if ($method->getAttributes(PublicPage::class) !== []) {
+                return true;
+            }
+        } catch (\ReflectionException) {
+            // Unknown method: fall through to the checks below so a bad route
+            // stays a 404 instead of becoming a 500.
         }
         if (
             $controller instanceof LoginController &&

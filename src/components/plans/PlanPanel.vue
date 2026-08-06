@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import PlanRow from './PlanRow.vue'
+import CreatePlanModal from './CreatePlanModal.vue'
+import EditPlanModal from './EditPlanModal.vue'
 import { ocs } from '../../lib/api'
 import { useAsync } from '../../composables/useAsync'
 import type { Plan } from '../../types'
@@ -8,6 +10,9 @@ import type { Plan } from '../../types'
 const plans = ref<Plan[]>([])
 const expandedId = ref<number | null>(null)
 const search = ref('')
+
+const showCreate = ref(false)
+const editTarget = ref<Plan | null>(null)
 
 const emit = defineEmits<{ count: [number] }>()
 
@@ -52,7 +57,7 @@ async function toggle(id: number) {
 				Subscription plans
 				<span v-if="plans.length" class="iz-badge iz-badge--muted">{{ plans.length }}</span>
 			</h3>
-			<button class="iz-btn iz-btn--primary iz-btn--sm" type="button">
+			<button class="iz-btn iz-btn--primary iz-btn--sm" type="button" @click="showCreate = true">
 				+ New plan
 			</button>
 		</div>
@@ -96,9 +101,19 @@ async function toggle(id: number) {
 					:plan="plan"
 					:expanded="expandedId === plan.id"
 					@toggle="toggle(plan.id)"
+					@edit="editTarget = plan"
 					@deleted="list.run()" />
 			</div>
 		</div>
+
+		<CreatePlanModal :show="showCreate"
+			@close="showCreate = false"
+			@success="showCreate = false; list.run()" />
+
+		<EditPlanModal :show="!!editTarget"
+			:plan="editTarget"
+			@close="editTarget = null"
+			@success="editTarget = null; list.run()" />
 	</section>
 </template>
 

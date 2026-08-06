@@ -78,21 +78,21 @@
 					</div>
 				</div>
 			</div>
-
-			<div class="modal-actions">
-				<IzButton type="tertiary" @click="closeModal">
-					Cancel
-				</IzButton>
-				<IzButton type="primary"
-					:disabled="saving"
-					@click="handleSave">
-					<template v-if="saving" #icon>
-						<IzSpinner :size="20" />
-					</template>
-					{{ saving ? 'Saving...' : 'Save Changes' }}
-				</IzButton>
-			</div>
 		</div>
+
+		<template #footer>
+			<IzButton type="tertiary" @click="closeModal">
+				Cancel
+			</IzButton>
+			<IzButton type="primary"
+				:disabled="saving"
+				@click="handleSave">
+				<template v-if="saving" #icon>
+					<IzSpinner :size="20" />
+				</template>
+				{{ saving ? 'Saving...' : 'Save Changes' }}
+			</IzButton>
+		</template>
 	</IzModal>
 </template>
 
@@ -269,12 +269,4 @@ const handleSave = async () => {
 	width: 100%;
 }
 
-.modal-actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 16px;
-	margin-top: 8px;
-	padding-top: 24px;
-	border-top: 1px solid var(--color-border);
-}
 </style>

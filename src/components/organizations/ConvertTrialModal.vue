@@ -29,7 +29,7 @@
 							<div class="form-row">
 								<label class="nc-label-text">Standard Plan</label>
 								<div class="select-wrapper">
-									<select v-model="selectedPlanId" class="nc-select-native">
+									<select v-model="selectedPlanId" class="iz-select">
 										<option :value="null" disabled>
 											Select a standard plan...
 										</option>
@@ -43,7 +43,7 @@
 							<div class="form-row">
 								<label class="nc-label-text">Validity Period</label>
 								<div class="select-wrapper">
-									<select v-model="validity" class="nc-select-native">
+									<select v-model="validity" class="iz-select">
 										<option value="1 month">
 											1 Month
 										</option>
@@ -88,21 +88,21 @@
 					</div>
 				</div>
 			</div>
-
-			<div class="modal-actions">
-				<IzButton type="tertiary" @click="closeModal">
-					Cancel
-				</IzButton>
-				<IzButton type="primary"
-					:disabled="submitting || !selectedPlanId"
-					@click="handleConvert">
-					<template v-if="submitting" #icon>
-						<IzSpinner :size="20" />
-					</template>
-					{{ submitting ? 'Converting...' : 'Convert to Standard' }}
-				</IzButton>
-			</div>
 		</div>
+
+		<template #footer>
+			<IzButton type="tertiary" @click="closeModal">
+				Cancel
+			</IzButton>
+			<IzButton type="primary"
+				:disabled="submitting || !selectedPlanId"
+				@click="handleConvert">
+				<template v-if="submitting" #icon>
+					<IzSpinner :size="20" />
+				</template>
+				{{ submitting ? 'Converting...' : 'Convert to Standard' }}
+			</IzButton>
+		</template>
 	</IzModal>
 </template>
 
@@ -303,31 +303,6 @@ const handleConvert = async () => {
 	position: relative;
 }
 
-.nc-select-native {
-	width: 100%;
-	padding: 8px 32px 8px 12px;
-	border: 1px solid var(--color-border-dark);
-	border-radius: var(--border-radius);
-	background-color: var(--color-main-background);
-	color: var(--color-main-text);
-	font-size: 1em;
-	line-height: 1.5;
-	height: auto;
-	transition: border-color 0.2s;
-	appearance: none;
-	-webkit-appearance: none;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='16' height='16'%3E%3Cpath fill='none' stroke='%23888' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-	background-repeat: no-repeat;
-	background-position: right 12px center;
-	cursor: pointer;
-}
-
-.nc-select-native:focus {
-	border-color: var(--color-primary);
-	outline: 2px solid var(--color-primary-element);
-	outline-offset: -1px;
-}
-
 .kpi-preview-card {
 	background-color: var(--color-background-hover);
 	border: 1px solid var(--color-border);
@@ -362,12 +337,4 @@ const handleConvert = async () => {
 	text-align: center;
 }
 
-.modal-actions {
-	display: flex;
-	justify-content: flex-end;
-	gap: 16px;
-	margin-top: 8px;
-	padding-top: 24px;
-	border-top: 1px solid var(--color-border);
-}
 </style>

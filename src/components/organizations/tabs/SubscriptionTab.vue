@@ -4,7 +4,7 @@ import type { Organization } from '../../../types'
 import { formatDateTime, formatFileSize, titleCase } from '../../../lib/format'
 
 const props = defineProps<{ org: Organization }>()
-defineEmits<{ changed: [] }>()
+defineEmits<{ convert: [] }>()
 
 const sub = computed(() => props.org.subscription)
 
@@ -69,7 +69,7 @@ const isTrial = computed(() => props.org.type === 'trial')
 		</div>
 
 		<div v-if="isTrial" class="subscription__actions">
-			<button class="iz-btn iz-btn--primary iz-btn--sm" type="button" @click="$emit('changed')">
+			<button class="iz-btn iz-btn--primary iz-btn--sm" type="button" @click="$emit('convert')">
 				Convert to standard
 			</button>
 			<span class="iz-state">Converting assigns a standard plan and starts a new term.</span>

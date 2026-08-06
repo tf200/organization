@@ -12,6 +12,8 @@ import type { Member, Organization } from '../../types'
 const props = defineProps<{ org: Organization }>()
 const emit = defineEmits<{
 	patch: [Partial<Organization>]
+	edit: []
+	convert: []
 	changed: []
 }>()
 
@@ -88,7 +90,7 @@ const tabs = computed(() => [
 			<OverviewTab v-if="activeTab === 'overview'"
 				:org="full"
 				:loading="detail.pending.value"
-				@edit="emit('changed')" />
+				@edit="emit('edit')" />
 
 			<MembersTab v-else-if="activeTab === 'members'"
 				:org="full"
@@ -97,7 +99,7 @@ const tabs = computed(() => [
 
 			<SubscriptionTab v-else-if="activeTab === 'subscription'"
 				:org="full"
-				@changed="emit('changed')" />
+				@convert="emit('convert')" />
 
 			<BackupsTab v-else-if="activeTab === 'backups'"
 				:organization="full" />

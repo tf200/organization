@@ -2,12 +2,23 @@
 import { computed, onMounted, ref } from 'vue'
 import OrgRow from './OrgRow.vue'
 import OrgDetail from './OrgDetail.vue'
+import CreateOrgModal from './CreateOrgModal.vue'
+import EditOrgModal from './EditOrgModal.vue'
+import ConvertTrialModal from './ConvertTrialModal.vue'
 import { ocs } from '../../lib/api'
 import { useAsync } from '../../composables/useAsync'
-import type { Organization } from '../../types'
+import type { Organization, Plan } from '../../types'
 
 const organizations = ref<Organization[]>([])
 const expandedId = ref<number | null>(null)
+
+/* Plans are needed by the create and convert modals, not by the list itself,
+   so a failure here must not take the organization list down with it. */
+const plans = ref<Plan[]>([])
+
+const showCreate = ref(false)
+const editTarget = ref<Organization | null>(null)
+const convertTarget = ref<Organization | null>(null)
 
 const search = ref('')
 const typeFilter = ref<'all' | 'standard' | 'trial'>('all')
@@ -22,7 +33,43 @@ const list = useAsync(async () => {
 	return organizations.value
 })
 
-onMounted(() => list.run())
+async function loadPlans() {
+	try {
+		const data = await ocs<{ plans: Plan[] }>('plans')
+		plans.value = data?.plans ?? []
+	} catch {
+		// Non-fatal: the create modal falls back to its "Custom plan" option.
+		plans.value = []
+	}
+}
+
+onMounted(() => {
+	list.run()
+	loadPlans()
+})
+
+function onCreated() {
+	showCreate.value = false
+	list.run()
+}
+
+function onEdited(updated: Partial<Organization> & { name?: string }) {
+	const id = editTarget.value?.id
+	editTarget.value = null
+	if (id === undefined) return
+	const i = organizations.value.findIndex((o) => o.id === id)
+	if (i !== -1) {
+		// The API may return `name` where the list holds `displayname`.
+		const displayname = updated?.name || updated?.displayname || organizations.value[i].displayname
+		organizations.value[i] = { ...organizations.value[i], ...updated, displayname }
+	}
+	list.run()
+}
+
+function onConverted() {
+	convertTarget.value = null
+	list.run()
+}
 
 /* Search matches displayname and the stringified id, as the old list did. */
 const filtered = computed(() => {
@@ -43,8 +90,6 @@ const statuses = computed(() => {
 	return [...seen].sort()
 })
 
-const isFiltered = computed(() =>
-	search.value.trim() !== '' || typeFilter.value !== 'all' || statusFilter.value !== 'all')
 
 function clearFilters() {
 	search.value = ''
@@ -76,7 +121,7 @@ defineExpose({ reload: () => list.run() })
 				Organizations
 				<span v-if="organizations.length" class="iz-badge iz-badge--muted">{{ organizations.length }}</span>
 			</h3>
-			<button class="iz-btn iz-btn--primary iz-btn--sm" type="button">
+			<button class="iz-btn iz-btn--primary iz-btn--sm" type="button" @click="showCreate = true">
 				+ New organization
 			</button>
 		</div>
@@ -141,10 +186,30 @@ defineExpose({ reload: () => list.run() })
 					:org="org"
 					:expanded="expandedId === org.id"
 					@toggle="toggle(org.id)">
-					<OrgDetail :org="org" @patch="patch(org.id, $event)" @changed="list.run()" />
+					<OrgDetail :org="org"
+						@patch="patch(org.id, $event)"
+						@edit="editTarget = org"
+						@convert="convertTarget = org"
+						@changed="list.run()" />
 				</OrgRow>
 			</div>
 		</div>
+
+		<CreateOrgModal :show="showCreate"
+			:plans="plans"
+			@close="showCreate = false"
+			@success="onCreated" />
+
+		<EditOrgModal :show="!!editTarget"
+			:organization="editTarget"
+			@close="editTarget = null"
+			@saved="onEdited" />
+
+		<ConvertTrialModal :show="!!convertTarget"
+			:organization="convertTarget"
+			:plans="plans"
+			@close="convertTarget = null"
+			@success="onConverted" />
 	</section>
 </template>
 

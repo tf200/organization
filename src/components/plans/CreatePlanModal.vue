@@ -22,7 +22,7 @@
 								class="full-width" />
 
 							<div class="form-row">
-								<label class="nc-label-text">Visibility</label>
+								<label class="iz-label">Visibility</label>
 								<div class="select-wrapper">
 									<select v-model="form.isPublic" class="iz-select">
 										<option :value="true">
@@ -51,7 +51,7 @@
 								:min="0" />
 
 							<div class="form-row">
-								<label class="nc-label-text">Currency</label>
+								<label class="iz-label">Currency</label>
 								<div class="select-wrapper">
 									<select v-model="form.currency" class="iz-select">
 										<option value="EUR">
@@ -198,103 +198,4 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped>
-.modal-content {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
-	padding: 8px 4px;
-}
-
-.modal-body-grid {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 24px;
-}
-
-@media (min-width: 900px) {
-	.modal-body-grid {
-		grid-template-columns: 1fr 1fr;
-		gap: 32px;
-	}
-}
-
-.grid-column {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
-}
-
-.grid-2-tight {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 12px;
-}
-
-@media (min-width: 600px) {
-	.grid-2-tight {
-		grid-template-columns: 1fr 1fr;
-	}
-}
-
-.form-section {
-	background-color: var(--color-background-translucent);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	padding: 20px;
-	transition: box-shadow 0.2s ease;
-}
-
-.form-section:hover {
-	box-shadow: var(--iz-shadow);
-}
-
-.section-header {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	margin-bottom: 20px;
-	border-bottom: 1px solid var(--color-border);
-	padding-bottom: 12px;
-}
-
-.section-icon {
-	color: var(--color-primary);
-	display: flex;
-	align-items: center;
-}
-
-.section-header h3 {
-	margin: 0;
-	font-size: 1.1em;
-	font-weight: 700;
-	color: var(--color-main-text);
-}
-
-.section-body {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-}
-
-.full-width {
-	width: 100%;
-}
-
-.form-row {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-}
-
-.nc-label-text {
-	font-weight: 600;
-	font-size: 0.9em;
-	color: var(--color-text-maxcontrast);
-	margin-left: 2px;
-}
-
-.select-wrapper {
-	position: relative;
-}
-
 </style>

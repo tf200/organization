@@ -27,7 +27,7 @@
 						</div>
 						<div class="section-body">
 							<div class="form-row">
-								<label class="nc-label-text">Standard Plan</label>
+								<label class="iz-label">Standard Plan</label>
 								<div class="select-wrapper">
 									<select v-model="selectedPlanId" class="iz-select">
 										<option :value="null" disabled>
@@ -41,7 +41,7 @@
 							</div>
 
 							<div class="form-row">
-								<label class="nc-label-text">Validity Period</label>
+								<label class="iz-label">Validity Period</label>
 								<div class="select-wrapper">
 									<select v-model="validity" class="iz-select">
 										<option value="1 month">
@@ -64,26 +64,28 @@
 							<Database :size="20" class="section-icon" />
 							<h3>Resource Preview</h3>
 						</div>
-						<div v-if="selectedPlan" class="section-body grid-2-tight">
-							<div class="kpi-preview-card">
-								<span class="preview-label">Max Members</span>
-								<span class="preview-value">{{ selectedPlan.maxMembers }}</span>
+						<div v-if="selectedPlan" class="iz-metrics convert-preview">
+							<div class="iz-metric">
+								<span class="iz-metric__label">Max Members</span>
+								<span class="iz-metric__value">{{ selectedPlan.maxMembers }}</span>
 							</div>
-							<div class="kpi-preview-card">
-								<span class="preview-label">Max Projects</span>
-								<span class="preview-value">{{ selectedPlan.maxProjects }}</span>
+							<div class="iz-metric">
+								<span class="iz-metric__label">Max Projects</span>
+								<span class="iz-metric__value">{{ selectedPlan.maxProjects }}</span>
 							</div>
-							<div class="kpi-preview-card">
-								<span class="preview-label">Shared Storage (Project)</span>
-								<span class="preview-value">{{ formatFileSize(selectedPlan.sharedStoragePerProject) }}</span>
+							<div class="iz-metric">
+								<span class="iz-metric__label">Shared Storage (Project)</span>
+								<span class="iz-metric__value">{{ formatFileSize(selectedPlan.sharedStoragePerProject) }}</span>
 							</div>
-							<div class="kpi-preview-card">
-								<span class="preview-label">Private Storage (User)</span>
-								<span class="preview-value">{{ formatFileSize(selectedPlan.privateStoragePerUser) }}</span>
+							<div class="iz-metric">
+								<span class="iz-metric__label">Private Storage (User)</span>
+								<span class="iz-metric__value">{{ formatFileSize(selectedPlan.privateStoragePerUser) }}</span>
 							</div>
 						</div>
-						<div v-else class="section-body no-plan-selected">
-							<p>Please select a plan to view resource allocations.</p>
+						<div v-else class="section-body">
+							<p class="iz-state">
+								Please select a plan to view resource allocations.
+							</p>
 						</div>
 					</div>
 				</div>
@@ -183,158 +185,26 @@ const handleConvert = async () => {
 </script>
 
 <style scoped>
-.modal-content {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
-	padding: 8px 4px;
-}
-
-.modal-header {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	padding-bottom: 16px;
-	border-bottom: 1px solid var(--color-border);
-}
-
 .org-avatar {
 	flex-shrink: 0;
 }
 
 .org-title h2 {
 	margin: 0;
-	font-size: 1.4rem;
-	font-weight: 600;
+	font-family: 'Space Grotesk', system-ui, sans-serif;
+	font-size: var(--iz-fs-lg);
+	font-weight: 700;
+	color: var(--iz-text);
 }
 
 .org-id {
-	font-size: 0.85rem;
-	color: var(--color-text-maxcontrast);
+	font-size: var(--iz-fs-xs);
+	color: var(--iz-text-muted);
 }
 
-.modal-body-grid {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 24px;
+/* The metrics strip has no top rule inside a modal section. */
+.convert-preview {
+	border-top: 0;
+	padding-top: 0;
 }
-
-@media (min-width: 900px) {
-	.modal-body-grid {
-		grid-template-columns: 1fr 1fr;
-		gap: 32px;
-	}
-}
-
-.grid-column {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
-}
-
-.form-section {
-	background-color: var(--color-background-translucent);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	padding: 20px;
-	transition: box-shadow 0.2s ease;
-	height: 100%;
-	box-sizing: border-box;
-}
-
-.form-section:hover {
-	box-shadow: var(--iz-shadow);
-}
-
-.section-header {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	margin-bottom: 20px;
-	border-bottom: 1px solid var(--color-border);
-	padding-bottom: 12px;
-}
-
-.section-icon {
-	color: var(--color-primary);
-	display: flex;
-	align-items: center;
-}
-
-.section-header h3 {
-	margin: 0;
-	font-size: 1.1em;
-	font-weight: 700;
-	color: var(--color-main-text);
-}
-
-.section-body {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-}
-
-.grid-2-tight {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 12px;
-}
-
-@media (min-width: 600px) {
-	.grid-2-tight {
-		grid-template-columns: 1fr 1fr;
-	}
-}
-
-.form-row {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-}
-
-.nc-label-text {
-	font-weight: 600;
-	font-size: 0.9em;
-	color: var(--color-text-maxcontrast);
-	margin-left: 2px;
-}
-
-.select-wrapper {
-	position: relative;
-}
-
-.kpi-preview-card {
-	background-color: var(--color-background-hover);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	padding: 12px 16px;
-	display: flex;
-	flex-direction: column;
-}
-
-.preview-label {
-	font-size: 0.75rem;
-	color: var(--color-text-maxcontrast);
-	text-transform: uppercase;
-	font-weight: 600;
-	letter-spacing: 0.04em;
-}
-
-.preview-value {
-	font-size: 1.25rem;
-	font-weight: 700;
-	margin-top: 4px;
-	color: var(--color-main-text);
-}
-
-.no-plan-selected {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	height: 120px;
-	color: var(--color-text-maxcontrast);
-	font-style: italic;
-	text-align: center;
-}
-
 </style>

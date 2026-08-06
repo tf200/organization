@@ -90,7 +90,6 @@ const statuses = computed(() => {
 	return [...seen].sort()
 })
 
-
 function clearFilters() {
 	search.value = ''
 	typeFilter.value = 'all'

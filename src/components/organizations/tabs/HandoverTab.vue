@@ -603,21 +603,21 @@ watch(() => props.organization?.id, () => {
 }
 
 .section {
-	background-color: var(--color-main-background);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
+	background-color: var(--iz-surface);
+	border: 1px solid var(--iz-border);
+	border-radius: var(--iz-radius-lg);
 	padding: 20px;
 }
 
 .section h3 {
 	margin: 0 0 8px 0;
-	font-size: 1.1rem;
+	font-size: var(--iz-fs-lg);
 	font-weight: 600;
 }
 
 .section-description {
-	color: var(--color-text-maxcontrast);
-	font-size: 0.9rem;
+	color: var(--iz-text-secondary);
+	font-size: var(--iz-fs-lg);
 	margin-bottom: 20px;
 }
 
@@ -635,9 +635,9 @@ watch(() => props.organization?.id, () => {
 }
 
 .form-group label {
-	font-size: 0.85rem;
+	font-size: var(--iz-fs-md);
 	font-weight: 600;
-	color: var(--color-text-maxcontrast);
+	color: var(--iz-text-secondary);
 }
 
 .options-grid {
@@ -646,8 +646,8 @@ watch(() => props.organization?.id, () => {
 	gap: 12px;
 	margin-bottom: 24px;
 	padding: 16px;
-	background-color: var(--color-background-dark);
-	border-radius: var(--border-radius);
+	background-color: var(--iz-surface-inset);
+	border-radius: var(--iz-radius);
 }
 
 .form-actions {
@@ -671,7 +671,7 @@ watch(() => props.organization?.id, () => {
 	align-items: center;
 	justify-content: center;
 	padding: 40px;
-	color: var(--color-text-maxcontrast);
+	color: var(--iz-text-secondary);
 	text-align: center;
 	gap: 12px;
 }
@@ -688,18 +688,18 @@ watch(() => props.organization?.id, () => {
 .jobs-table th {
 	text-align: left;
 	padding: 12px;
-	border-bottom: 2px solid var(--color-border);
-	font-size: 0.85rem;
+	border-bottom: 2px solid var(--iz-border);
+	font-size: var(--iz-fs-md);
 	font-weight: 600;
-	color: var(--color-text-maxcontrast);
+	color: var(--iz-text-secondary);
 	text-transform: uppercase;
 	letter-spacing: 0.05em;
 }
 
 .jobs-table td {
 	padding: 12px;
-	border-bottom: 1px solid var(--color-border);
-	font-size: 0.95rem;
+	border-bottom: 1px solid var(--iz-border);
+	font-size: var(--iz-fs-lg);
 }
 
 .job-row {
@@ -708,7 +708,7 @@ watch(() => props.organization?.id, () => {
 }
 
 .job-row:hover {
-	background-color: var(--color-background-hover);
+	background-color: var(--iz-surface-subtle);
 }
 
 .transfer-info {
@@ -719,21 +719,21 @@ watch(() => props.organization?.id, () => {
 
 .uid {
 	font-family: monospace;
-	font-size: 0.85em;
-	background-color: var(--color-background-dark);
+	font-size: var(--iz-fs-md);
+	background-color: var(--iz-surface-inset);
 	padding: 2px 6px;
-	border-radius: 4px;
+	border-radius: var(--iz-radius-sm);
 }
 
 .type-tag {
-	font-size: 0.75rem;
+	font-size: var(--iz-fs-sm);
 	font-weight: 600;
 	padding: 2px 6px;
-	border-radius: 4px;
+	border-radius: var(--iz-radius-sm);
 }
 
-.type-tag.dry-run { background-color: var(--color-warning-light); color: var(--color-warning); }
-.type-tag.real { background-color: var(--color-info-light); color: var(--color-info); }
+.type-tag.dry-run { background-color: var(--iz-warning-bg); color: var(--iz-warning); }
+.type-tag.real { background-color: var(--iz-accent-bg); color: var(--iz-accent); }
 
 .actions-cell {
 	display: flex;
@@ -761,7 +761,7 @@ watch(() => props.organization?.id, () => {
 	align-items: center;
 	gap: 16px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid var(--color-border);
+	border-bottom: 1px solid var(--iz-border);
 }
 
 .details-header h2 {
@@ -776,17 +776,17 @@ watch(() => props.organization?.id, () => {
 }
 
 .details-card {
-	background-color: var(--color-main-background);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
+	background-color: var(--iz-surface);
+	border: 1px solid var(--iz-border);
+	border-radius: var(--iz-radius-lg);
 	padding: 20px;
 }
 
 .details-card h3 {
 	margin: 0 0 16px 0;
-	font-size: 1rem;
+	font-size: var(--iz-fs-lg);
 	font-weight: 600;
-	color: var(--color-text-maxcontrast);
+	color: var(--iz-text-secondary);
 }
 
 .summary-info {
@@ -798,11 +798,11 @@ watch(() => props.organization?.id, () => {
 .info-item {
 	display: flex;
 	justify-content: space-between;
-	font-size: 0.95rem;
+	font-size: var(--iz-fs-lg);
 }
 
 .info-item .label {
-	color: var(--color-text-maxcontrast);
+	color: var(--iz-text-secondary);
 }
 
 .info-item .value {
@@ -812,15 +812,15 @@ watch(() => props.organization?.id, () => {
 .error-banner {
 	margin-top: 20px;
 	padding: 16px;
-	background-color: var(--color-error-light);
-	border-radius: var(--border-radius);
+	background-color: var(--iz-danger-bg);
+	border-radius: var(--iz-radius);
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
 }
 
 .error-content {
-	font-size: 0.9rem;
+	font-size: var(--iz-fs-lg);
 }
 
 .error-content p {
@@ -840,12 +840,12 @@ watch(() => props.organization?.id, () => {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	font-size: 0.95rem;
-	color: var(--color-text-maxcontrast);
+	font-size: var(--iz-fs-lg);
+	color: var(--iz-text-secondary);
 }
 
 .options-list li.enabled {
-	color: var(--color-main-text);
+	color: var(--iz-text);
 	font-weight: 500;
 }
 
@@ -865,10 +865,10 @@ watch(() => props.organization?.id, () => {
 	margin-top: 2px;
 }
 
-.step-icon .success { color: var(--color-success); }
-.step-icon .error { color: var(--color-error); }
-.step-icon .skipped { color: var(--color-text-maxcontrast); }
-.step-icon .pending { color: var(--color-text-maxcontrast); }
+.step-icon .success { color: var(--iz-success); }
+.step-icon .error { color: var(--iz-danger); }
+.step-icon .skipped { color: var(--iz-text-secondary); }
+.step-icon .pending { color: var(--iz-text-secondary); }
 
 .step-info {
 	flex: 1;
@@ -876,31 +876,31 @@ watch(() => props.organization?.id, () => {
 
 .step-name {
 	font-weight: 600;
-	font-size: 0.95rem;
+	font-size: var(--iz-fs-lg);
 }
 
 .step-meta {
-	font-size: 0.85rem;
-	color: var(--color-text-maxcontrast);
+	font-size: var(--iz-fs-md);
+	color: var(--iz-text-secondary);
 	text-transform: capitalize;
 }
 
 .step-error {
 	margin-top: 4px;
-	font-size: 0.85rem;
-	color: var(--color-error);
-	background-color: var(--color-error-light);
+	font-size: var(--iz-fs-md);
+	color: var(--iz-danger);
+	background-color: var(--iz-danger-bg);
 	padding: 4px 8px;
-	border-radius: 4px;
+	border-radius: var(--iz-radius-sm);
 }
 
 .step-warning {
 	margin-top: 4px;
-	font-size: 0.85rem;
-	color: var(--color-text-maxcontrast);
-	background-color: var(--color-background-dark);
+	font-size: var(--iz-fs-md);
+	color: var(--iz-text-secondary);
+	background-color: var(--iz-surface-inset);
 	padding: 4px 8px;
-	border-radius: 4px;
+	border-radius: var(--iz-radius-sm);
 }
 
 .step-details {
@@ -909,14 +909,14 @@ watch(() => props.organization?.id, () => {
 
 .step-details summary {
 	cursor: pointer;
-	color: var(--color-primary);
+	color: var(--iz-accent);
 }
 
 .step-details pre {
 	margin: 8px 0 0 0;
 	padding: 8px;
 	background-color: var(--iz-surface-inset);
-	border-radius: 4px;
+	border-radius: var(--iz-radius-sm);
 	overflow-x: auto;
 }
 
@@ -934,21 +934,21 @@ watch(() => props.organization?.id, () => {
 .events-stream {
 	max-height: 300px;
 	overflow-y: auto;
-	background-color: var(--color-background-dark);
-	border-radius: var(--border-radius);
+	background-color: var(--iz-surface-inset);
+	border-radius: var(--iz-radius);
 	padding: 12px;
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
 	font-family: monospace;
-	font-size: 0.85rem;
+	font-size: var(--iz-fs-md);
 }
 
 .event-item {
 	display: flex;
 	gap: 12px;
 	padding: 4px 8px;
-	border-radius: 4px;
+	border-radius: var(--iz-radius-sm);
 }
 
 .event-item.info { color: var(--iz-text-secondary); }
@@ -964,7 +964,7 @@ watch(() => props.organization?.id, () => {
 	margin-top: 4px;
 	padding: 8px;
 	background-color: var(--iz-surface-inset);
-	border-radius: 4px;
+	border-radius: var(--iz-radius-sm);
 	overflow-x: auto;
 }
 
@@ -978,7 +978,7 @@ watch(() => props.organization?.id, () => {
 
 .event-details summary {
 	cursor: pointer;
-	color: var(--color-primary);
+	color: var(--iz-accent);
 }
 
 .event-payload pre {

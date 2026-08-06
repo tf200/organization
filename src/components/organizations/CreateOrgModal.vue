@@ -88,19 +88,20 @@
 							<h3>Billing & Plan</h3>
 						</div>
 						<div class="section-body">
-							<div class="trial-checkbox-row">
-								<label class="trial-checkbox-label">
+							<div class="iz-inset trial-block">
+								<label class="trial-toggle">
 									<input type="checkbox" :checked="newOrg.isTrial" @change="onTrialToggle">
-									<span>Create as Trial Organization</span>
+									<span>Create as trial organization</span>
 								</label>
-								<div v-if="newOrg.isTrial" class="trial-summary">
-									<span class="trial-chip">Trial</span>
-									<span>7 days &middot; 3 members &middot; 1 project &middot; 100MB storage</span>
+								<div v-if="newOrg.isTrial" class="trial-block__summary">
+									<span class="iz-badge iz-badge--cat-5">Trial</span>
+									<span v-if="trialSummary">{{ trialSummary }}</span>
+									<span v-else class="iz-state">Reading the current trial defaults…</span>
 								</div>
 							</div>
 							<template v-if="!newOrg.isTrial">
 								<div class="form-row">
-									<label class="nc-label-text">Subscription Plan</label>
+									<label class="iz-label">Subscription Plan</label>
 									<div class="select-wrapper">
 										<select v-model="newOrg.planId" class="iz-select" @change="onPlanChange">
 											<option :value="null">
@@ -113,7 +114,7 @@
 									</div>
 								</div>
 								<div class="form-row">
-									<label class="nc-label-text">Validity Period</label>
+									<label class="iz-label">Validity Period</label>
 									<div class="select-wrapper">
 										<select v-model="newOrg.validity" class="iz-select">
 											<option value="1 month">
@@ -179,6 +180,9 @@ import { ref, reactive, watch, computed } from 'vue'
 import axios from '@nextcloud/axios'
 import { generateOcsUrl } from '@nextcloud/router'
 import { confirmPassword } from '../../lib/passwordConfirmation'
+import { ocs } from '../../lib/api'
+import { formatFileSize } from '../../lib/format'
+import type { TrialSettings } from '../../types'
 
 // Icons
 import AccountGroup from 'vue-material-design-icons/AccountGroup.vue'
@@ -194,6 +198,31 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits(['close', 'success'])
+
+/**
+ * The trial summary used to be the hardcoded string
+ * "7 days · 3 members · 1 project · 100MB storage". It did not read the
+ * settings, so it went stale the moment anyone changed a default — and it was
+ * only ever right because nobody had saved them.
+ */
+const trialDefaults = ref<TrialSettings | null>(null)
+
+const trialSummary = computed(() => {
+	const d = trialDefaults.value
+	if (!d) return null
+	const members = `${d.maxMembers} member${d.maxMembers === 1 ? '' : 's'}`
+	const projects = `${d.maxProjects} project${d.maxProjects === 1 ? '' : 's'}`
+	return `${d.duration} · ${members} · ${projects} · ${formatFileSize(d.sharedStoragePerProject)} shared per project`
+})
+
+async function loadTrialDefaults() {
+	try {
+		trialDefaults.value = await ocs<TrialSettings>('admin/settings/trial')
+	} catch {
+		// Non-fatal: the line is omitted rather than shown wrong.
+		trialDefaults.value = null
+	}
+}
 
 const submitting = ref(false)
 
@@ -246,6 +275,7 @@ const privateStorageGB = computed({
 })
 
 watch(() => props.show, (val) => {
+	if (val) loadTrialDefaults()
 	if (val) {
 		Object.assign(newOrg, defaultNewOrg)
 		errors.displayname = ''
@@ -295,163 +325,36 @@ const handleCreate = async () => {
 </script>
 
 <style scoped>
-.modal-content {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
-	padding: 8px 4px;
-}
-
-.trial-checkbox-row {
+.trial-block {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	padding: 12px 16px;
-	margin-bottom: 12px;
-	background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-	border: 1px solid color-mix(in srgb, var(--color-primary) 25%, var(--color-border));
-	border-radius: var(--border-radius-large);
+	margin-bottom: var(--iz-gap-tight, 10px);
 }
 
-.trial-summary {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	font-size: 0.85rem;
-	color: var(--color-text-light);
-}
-
-.trial-checkbox-label {
+/* The theme gives .iz-app input[type=checkbox] its accent-color, so the only
+   thing left here is the row layout. */
+.trial-toggle {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	cursor: pointer;
-	font-weight: 600;
 	user-select: none;
+	font-size: var(--iz-fs-md);
+	font-weight: 600;
 }
 
-.trial-checkbox-label input[type="checkbox"] {
-	width: 18px;
-	height: 18px;
+.trial-toggle input[type='checkbox'] {
+	width: 16px;
+	height: 16px;
 	cursor: pointer;
 }
 
-.trial-chip {
-	padding: 2px 8px;
-	border-radius: 999px;
-	background: var(--color-primary);
-	color: var(--color-primary-text);
-	font-size: 0.7rem;
-	font-weight: 700;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-}
-
-/* Grid Layout */
-.modal-body-grid {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 24px;
-}
-
-@media (min-width: 900px) {
-	.modal-body-grid {
-		grid-template-columns: 1fr 1fr;
-		gap: 32px;
-	}
-}
-
-.grid-column {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
-}
-
-.grid-2-tight {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 12px;
-}
-
-@media (min-width: 600px) {
-	.grid-2-tight {
-		grid-template-columns: 1fr 1fr;
-	}
-}
-
-/* Sections */
-.form-section {
-	background-color: var(--color-background-translucent);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	padding: 20px;
-	transition: box-shadow 0.2s ease;
-}
-
-.form-section:hover {
-	box-shadow: var(--iz-shadow);
-}
-
-.section-header {
+.trial-block__summary {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	margin-bottom: 20px;
-	border-bottom: 1px solid var(--color-border);
-	padding-bottom: 12px;
-}
-
-.section-icon {
-	color: var(--color-primary);
-	display: flex;
-	align-items: center;
-}
-
-.section-header h3 {
-	margin: 0;
-	font-size: 1.1em;
-	font-weight: 700;
-	color: var(--color-main-text);
-}
-
-.section-body {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-}
-
-/* Form Elements */
-.full-width {
-	width: 100%;
-}
-
-.form-row {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-}
-
-.nc-label-text {
-	font-weight: 600;
-	font-size: 0.9em;
-	color: var(--color-text-maxcontrast);
-	margin-left: 2px;
-}
-
-.select-wrapper {
-	position: relative;
-}
-
-/* Actions */
-
-/* Mobile optimizations */
-@media (max-width: 600px) {
-	.modal-body-grid {
-		gap: 16px;
-	}
-
-	.form-section {
-		padding: 16px;
-	}
+	gap: 8px;
+	font-size: var(--iz-fs-sm);
+	color: var(--iz-text-secondary);
 }
 </style>

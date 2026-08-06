@@ -30,3 +30,102 @@
 #app-content:has(.org-dashboard) {
 	background: var(--image-background);
 }
+
+/* ── Modal form layout ────────────────────────────────────────────────────
+ * One definition, shared by all five modals. Previously each carried its own
+ * copy of these classes, so the same card, section heading and label were
+ * declared five times and had already drifted apart.
+ *
+ * Qualified on .iz-app rather than left bare for two reasons: these are
+ * generic names that must not leak into Nextcloud's own chrome, and the
+ * password prompt mounts into a detached host that carries .iz-app but sits
+ * outside .org-dashboard.
+ *
+ * Layout and the one thing the theme has no primitive for — a bordered form
+ * section. Every value comes from a token; no literal colours or sizes.
+ */
+.iz-app {
+	.modal-body-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: var(--spacing-lg);
+	}
+
+	.grid-column {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
+	}
+
+	.grid-2-tight {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: var(--iz-gap-tight, 10px);
+	}
+
+	.form-section {
+		background: var(--iz-surface);
+		border: 1px solid var(--iz-border);
+		border-radius: var(--iz-radius-lg);
+		padding: var(--iz-pad-card);
+	}
+
+	.section-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: var(--iz-gap);
+		padding-bottom: var(--iz-gap-tight, 10px);
+		border-bottom: 1px solid var(--iz-border);
+	}
+
+	.section-icon {
+		display: flex;
+		align-items: center;
+		color: var(--iz-accent);
+	}
+
+	/* Matches .iz-section-title: the theme's eyebrow, not a heading. */
+	.section-header h3 {
+		margin: 0;
+		font-size: var(--iz-fs-micro);
+		font-weight: 700;
+		letter-spacing: 0.5px;
+		text-transform: uppercase;
+		color: var(--iz-text-secondary);
+	}
+
+	.section-body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--iz-gap);
+	}
+
+	.form-row {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		min-width: 0;
+	}
+
+	.full-width {
+		width: 100%;
+	}
+}
+
+@media (min-width: 900px) {
+	.iz-app .modal-body-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+@media (min-width: 600px) {
+	.iz-app .grid-2-tight {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+@media (max-width: 600px) {
+	.iz-app .modal-body-grid { gap: var(--iz-gap); }
+	.iz-app .form-section { padding: var(--iz-gap); }
+}

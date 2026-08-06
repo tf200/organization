@@ -176,97 +176,21 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
-.modal-content {
-	display: flex;
-	flex-direction: column;
-	gap: 24px;
-	padding: 8px 4px;
-}
-
-.modal-header {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	padding-bottom: 16px;
-	border-bottom: 1px solid var(--color-border);
-}
-
 .org-avatar {
 	flex-shrink: 0;
 }
 
 .org-title h2 {
 	margin: 0;
-	font-size: 1.4rem;
-	font-weight: 600;
+	font-family: 'Space Grotesk', system-ui, sans-serif;
+	font-size: var(--iz-fs-lg);
+	font-weight: 700;
+	color: var(--iz-text);
 }
 
 .org-id {
-	font-size: 0.85rem;
-	color: var(--color-text-maxcontrast);
-	font-family: monospace;
+	font-size: var(--iz-fs-xs);
+	color: var(--iz-text-muted);
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-
-.modal-body {
-	display: flex;
-	flex-direction: column;
-	gap: 20px;
-}
-
-.form-section {
-	background-color: var(--color-background-translucent);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	padding: 20px;
-	transition: box-shadow 0.2s ease;
-}
-
-.form-section:hover {
-	box-shadow: var(--iz-shadow);
-}
-
-.section-header {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	margin-bottom: 20px;
-	border-bottom: 1px solid var(--color-border);
-	padding-bottom: 12px;
-}
-
-.section-icon {
-	color: var(--color-primary);
-	display: flex;
-	align-items: center;
-}
-
-.section-header h3 {
-	margin: 0;
-	font-size: 1.1em;
-	font-weight: 700;
-	color: var(--color-main-text);
-}
-
-.section-body {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
-}
-
-.grid-2 {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 16px;
-}
-
-@media (min-width: 600px) {
-	.grid-2 {
-		grid-template-columns: 1fr 1fr;
-	}
-}
-
-.full-width {
-	width: 100%;
-}
-
 </style>

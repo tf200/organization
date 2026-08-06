@@ -19,8 +19,15 @@
 - **Chrome from the primitive, layout stays local.** Never hardcode a colour or a font size. Never put a layout property in a shared primitive.
 - **Adding a primitive class without deleting the local rule does nothing.** Vue scoped CSS is specificity `(0,2,0)` — identical to `.iz-app .iz-input` — and app styles inject *after* the theme. On a tie the app wins. Verify against computed styles in the browser, not by reading the file.
 - **Unscoped blocks are the inverse trap.** A bare class in an unscoped `<style>` is `(0,1,0)` and loses to the theme. Qualify it on a parent.
-- **Nextcloud core fights bare elements** at `(0,1,1)`: `min-height: var(--default-clickable-area)` (34px), `padding: 7.5px 12px`, a `:focus` background repaint, and an `!important` focus outline. Use primitives, not bare `<button>`.
-- **Check both colour schemes every time.** Simulate dark by setting `data-themes="dark"` and `data-theme-dark=""` on **both** `<body>` and `<html>`.
+- **Nextcloud core fights bare elements** at `(0,1,1)`: `min-height: var(--default-clickable-area)` (34px), `padding: 7.5px 12px`, a `:focus` background repaint, and an `!important` focus outline. Use primitives, not bare `<button>`. **If you qualify a base, qualify its modifiers too**, or the base outranks them.
+- **`.iz-input` and `.iz-select` are `width: 100%`.** Right for a stacked form field, wrong in a toolbar row — set `width: auto` locally there. This applies to every toolbar in this plan (Tasks 6 and 12).
+- **Badges pair a tint background with a solid text colour.** Every status and categorical colour has all three (`--iz-success` / `-bg` / `-text`). Using one token for both renders invisible text — shipped twice in the sibling apps.
+- **Never build a class name from data.** `'prefix--' + row.status` silently emits a class that may not exist. Map through an explicit table with a neutral fallback (Task 6, Step 2).
+- **Semantic colours mean status.** Don't reach for `--color-success` because green looks nice — an org avatar filled with it reads as "healthy".
+- **Check both colour schemes every time.** Simulate dark by setting `data-themes="dark"` and `data-theme-dark=""` on **both** `<body>` and `<html>`. Native form controls stay light under that fake toggle — ignore those.
+- **The dark-mode trap is a token that inverts used as a solid fill under white text.** `--accent-strong` (aliases `--iz-cat-2`) and the `--color-badge-*-text` ramps all lighten on dark. For a solid fill use `--accent`, `--color-danger` or `--color-success`, with `--iz-accent-text` for the label on top.
+- **Colours embedded in `<template>` SVGs escape every sweep.** All icons in this plan take `stroke="currentColor"` so they follow the element they sit in. Never `stroke="#6b7280"`.
+- **One-line CSS rules** (`.a { color: x }` all on one line) survive naive deletion patterns that expect the brace on its own line. When deleting a superseded local rule, check for these.
 - **Reloading does not re-fetch the bundle or the theme CSS.** `fetch(url, {cache: 'reload'})` for each, then reload.
 - **Bump `<version>` in `appinfo/info.xml` only when PHP changes** (`lib/`, `appinfo/`). This plan does change PHP, so it bumps once, in Task 16. Never bump for a frontend-only task.
 - **Never change `<id>` in `appinfo/info.xml`.** It must stay `organization`. Production is the authority.
@@ -355,8 +362,11 @@ Create `src/styles/iz-app.scss`. **Layout only** — no colours, no font sizes, 
 
 ```scss
 /* The one unscoped stylesheet in this app.
-   Layout only: the theme owns all chrome. Anything here that sets a colour,
-   a font-size, a border or a shadow is a bug — use an .iz-* primitive. */
+   Scope: the page container and nothing else. It sets the page backdrop, the
+   base text colour and the base font — all from tokens, matching the container
+   block in all three sibling apps.
+   It must never set component chrome: no borders, no shadows, no radii, no
+   font sizes, and no literal colour values. Those come from .iz-* primitives. */
 
 .org-dashboard {
   background: var(--bg-page);
@@ -580,6 +590,8 @@ Needed by every destructive action in later tasks. The sibling apps' copy is a V
 - Produces: props `{ title: string; message?: string; confirmLabel?: string; cancelLabel?: string; busyLabel?: string; danger?: boolean; alertOnly?: boolean; busy?: boolean; error?: string }`; emits `confirm` and `cancel`.
 
 **The contract, which is the whole point:** the parent owns `busy` and `error`, and **the dialog never closes itself**. A failed action stays open with its reason attached. It also refuses to cancel while `busy`.
+
+**This is a deliberate fork, and the theme guide says "copy, don't fork".** The guide's §10 requires a change to `ConfirmDialog.vue` to be applied to every app in the same commit. That is impossible here: the shared file is a Vue 2 SFC and this is a Vue 3 app. The divergence is unavoidable, so it must be *documented* rather than silent — record it in this app's `CLAUDE.md` (Task 17) so the next person changing the shared dialog knows a fourth, non-identical copy exists and needs porting rather than copying.
 
 - [ ] **Step 1: Write it**
 
@@ -1437,9 +1449,17 @@ Type-error count before and after, lint count before and after, bundle size befo
 
 - [ ] **Step 8: Update `CLAUDE.md`**
 
-Point the design section at `USING-THE-THEME.md` and keep only this app's deltas — Vue 3 versus the siblings' Vue 2.7, Vite versus webpack, the committed `js/` and `css/` outputs, and the PHPUnit bootstrap. **Do not copy the guide's content in**; that is exactly the drift it exists to end. Use `../employee_dashboard/CLAUDE.md` as the model.
+Point the design section at `USING-THE-THEME.md` and keep only this app's deltas — Vue 3 versus the siblings' Vue 2.7, Vite versus webpack, the committed `js/` and `css/` outputs, the PHPUnit bootstrap, and **the forked `ConfirmDialog.vue`**. **Do not copy the guide's content in**; that is exactly the drift it exists to end. Use `../employee_dashboard/CLAUDE.md` as the model.
 
-- [ ] **Step 9: Do not push.** Report status and ask.
+- [ ] **Step 9: Add this app to the theme guide's consumer list**
+
+`USING-THE-THEME.md:3` reads *"Canonical guidance for `adminpage`, `superadminpage` and `employee_dashboard`."* This app becomes the fourth consumer, and its `ConfirmDialog` fork is the first case the guide's §10 does not cover. Both belong in the guide, not in this repo.
+
+Edit `/home/payboy/src/inzicht-nextcloud-theme/USING-THE-THEME.md`: add `organization` to line 3, and add one line to §10 noting that a Vue 3 consumer cannot share the Vue 2 SFC, so `ConfirmDialog.vue` has a ported fourth copy that must be updated alongside the other three.
+
+This is a change to the theme repo. **Commit it there separately, and do not deploy the theme** — no CSS changed, so `deploy-docker.sh` is not needed.
+
+- [ ] **Step 10: Do not push.** Report status and ask.
 
 ---
 

@@ -1,643 +1,371 @@
-<template>
-	<div class="backup-section">
-		<!-- Header Area -->
-		<div class="backup-intro">
-			<div class="intro-content">
-				<div class="intro-icon-wrap">
-					<CloudDownload :size="28" />
-				</div>
-				<div class="intro-text">
-					<h3 class="intro-title">
-						Organization Backup
-					</h3>
-					<p class="intro-desc">
-						Export shared project files as a ZIP archive with readable summaries, spreadsheet-friendly tables,
-						and JSON data. Backups expire automatically after 24 hours.
-					</p>
-				</div>
-			</div>
-			<div class="backup-actions">
-				<div class="backup-type-picker">
-					<label for="backup-type-select">Backup Type</label>
-					<select id="backup-type-select" v-model="selectedBackupType" :disabled="creating">
-						<option value="full">
-							Full
-						</option>
-						<option value="incremental">
-							Incremental
-						</option>
-					</select>
-				</div>
-				<IzButton type="primary"
-					:disabled="creating"
-					@click="createJob">
-					<template #icon>
-						<IzSpinner v-if="creating" :size="20" />
-						<Plus v-else :size="20" />
-					</template>
-					New Backup
-				</IzButton>
-			</div>
-		</div>
-
-		<!-- Loading State -->
-		<div v-if="initialLoading" class="state-card">
-			<IzSpinner :size="32" />
-			<p class="state-text">
-				Loading backup jobs…
-			</p>
-		</div>
-
-		<!-- Empty State -->
-		<div v-else-if="jobs.length === 0" class="state-card empty-state">
-			<div class="empty-icon-wrap">
-				<DatabaseOff :size="40" />
-			</div>
-			<h4 class="empty-title">
-				No backups yet
-			</h4>
-			<p class="empty-desc">
-				Create your first backup to export all shared project files.
-				Backups include readable overviews, CSV tables, JSON metadata, and the full folder structure.
-			</p>
-			<IzButton type="primary"
-				:disabled="creating"
-				@click="createJob">
-				<template #icon>
-					<IzSpinner v-if="creating" :size="20" />
-					<Plus v-else :size="20" />
-				</template>
-				Create First Backup
-			</IzButton>
-		</div>
-
-		<!-- Jobs List -->
-		<template v-else>
-			<TransitionGroup name="job-list" tag="div" class="jobs-list">
-				<div v-for="job in jobs"
-					:key="job.jobId"
-					class="job-card"
-					:class="{ expanded: selectedJob?.jobId === job.jobId }"
-					@click="toggleJob(job)">
-					<!-- Job Summary Row -->
-					<div class="job-summary">
-						<div class="job-left">
-							<!-- Status Indicator -->
-							<div class="status-indicator" :class="job.status">
-								<IzSpinner v-if="isActiveStatus(job.status)" :size="18" />
-								<Check v-else-if="job.status === 'completed'" :size="18" />
-								<AlertCircle v-else-if="job.status === 'failed'" :size="18" />
-								<ClockOutline v-else :size="18" />
-							</div>
-
-							<div class="job-info">
-								<div class="job-name-row">
-									<span class="job-name">Backup #{{ job.jobId }}</span>
-									<span class="iz-badge iz-badge--muted">{{ formatBackupType(job.backupType) }}</span>
-									<span class="iz-pill" :class="statusTone(job.status)">
-										{{ formatStatus(job.status) }}
-									</span>
-								</div>
-								<div class="job-timestamps">
-									<span class="timestamp">
-										<CalendarClock :size="13" />
-										{{ formatDate(job.createdAt) }}
-									</span>
-									<span v-if="job.expiresAt" class="timestamp expires">
-										<TimerSand :size="13" />
-										Expires {{ formatDate(job.expiresAt) }}
-									</span>
-								</div>
-							</div>
-						</div>
-
-						<div class="job-right">
-							<IzButton v-if="job.status === 'completed' && job.backupType === 'full'"
-								type="secondary"
-								:disabled="creatingRollback"
-								@click.stop="createRollbackJob(job.jobId, 'dry_run')">
-								Dry-run Rollback
-							</IzButton>
-							<IzButton v-if="job.status === 'completed'"
-								type="primary"
-								:title="downloadBlockedReason(job) || 'Download the archive'"
-								:disabled="actionLoading === job.jobId || !!downloadBlockedReason(job)"
-								@click.stop="download(job)">
-								<template #icon>
-									<Download :size="18" />
-								</template>
-								Download
-							</IzButton>
-							<IzButton type="error"
-								:disabled="actionLoading === job.jobId"
-								@click.stop="confirmDelete(job)">
-								<template #icon>
-									<IzSpinner v-if="actionLoading === job.jobId" :size="18" />
-									<Delete v-else :size="18" />
-								</template>
-							</IzButton>
-							<ChevronDown :size="20"
-								class="expand-icon"
-								:class="{ rotated: selectedJob?.jobId === job.jobId }" />
-						</div>
-					</div>
-
-					<!-- Error Banner -->
-					<div v-if="job.errorMessage" class="error-banner" @click.stop>
-						<AlertCircle :size="16" />
-						<span>{{ job.errorMessage }}</span>
-					</div>
-
-					<!-- Progress Bar for Active Jobs -->
-					<div v-if="isActiveStatus(job.status)" class="progress-track" @click.stop>
-						<div class="progress-fill" :class="job.status" />
-					</div>
-
-					<!-- Expanded Detail Panel -->
-					<Transition name="expand">
-						<div v-if="selectedJob?.jobId === job.jobId"
-							class="job-detail"
-							@click.stop>
-							<!-- Detail Grid -->
-							<div class="detail-grid">
-								<div class="detail-item">
-									<span class="detail-label">Job ID</span>
-									<span class="detail-value mono">{{ selectedJob.jobId }}</span>
-								</div>
-								<div class="detail-item">
-									<span class="detail-label">Status</span>
-									<span class="detail-value capitalize">{{ selectedJob.status }}</span>
-								</div>
-								<div class="detail-item">
-									<span class="detail-label">Created</span>
-									<span class="detail-value">{{ formatDate(selectedJob.createdAt) }}</span>
-								</div>
-								<div class="detail-item">
-									<!-- Was bound to completedAt, which mapJobRow never returns, so this
-										     row rendered an em-dash for every job ever. -->
-									<span class="detail-label">Finished</span>
-									<span class="detail-value">{{ formatDate(selectedJob.finishedAt) }}</span>
-								</div>
-								<div v-if="selectedJob.expiresAt" class="detail-item">
-									<span class="detail-label">Expires</span>
-									<span class="detail-value">{{ formatDate(selectedJob.expiresAt) }}</span>
-								</div>
-								<div v-if="selectedJob.artifactSize" class="detail-item">
-									<!-- Was bound to fileSize, also never returned, so this row never
-										     rendered at all. -->
-									<span class="detail-label">Artifact size</span>
-									<span class="detail-value">{{ formatFileSize(selectedJob.artifactSize) }}</span>
-								</div>
-								<div v-if="selectedJob.artifactName" class="detail-item">
-									<span class="detail-label">Artifact</span>
-									<span class="detail-value mono">{{ selectedJob.artifactName }}</span>
-								</div>
-							</div>
-
-							<!-- Events Timeline -->
-							<div class="events-section">
-								<h4 class="events-title">
-									<TimelineText :size="18" />
-									Activity Log
-									<span v-if="events.length" class="events-count">{{ events.length }}</span>
-								</h4>
-
-								<div v-if="events.length === 0" class="events-empty">
-									<span>No activity recorded yet.</span>
-								</div>
-
-								<div v-else class="timeline">
-									<div v-for="(evt, idx) in events"
-										:key="evt.id"
-										class="timeline-item"
-										:class="evt.level">
-										<div class="timeline-connector">
-											<div class="timeline-dot" :class="evt.level" />
-											<div v-if="idx < events.length - 1" class="timeline-line" />
-										</div>
-										<div class="timeline-content">
-											<div class="timeline-header">
-												<span class="event-level-badge" :class="evt.level">
-													{{ evt.level }}
-												</span>
-												<span class="event-time">{{ formatDate(evt.createdAt) }}</span>
-											</div>
-											<p class="event-message">
-												{{ evt.message }}
-											</p>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</Transition>
-				</div>
-			</TransitionGroup>
-			<Pagination v-model:offset="jobsOffset"
-				:limit="JOBS_PAGE"
-				:count="jobs.length"
-				label="backups" />
-		</template>
-
-		<div class="rollback-panel">
-			<div class="rollback-header">
-				<h4>Rollback Jobs</h4>
-			</div>
-			<div v-if="rollbackJobs.length === 0" class="rollback-empty">
-				No rollback jobs yet.
-			</div>
-			<div v-else class="rollback-list">
-				<div v-for="job in rollbackJobs" :key="job.jobId" class="rollback-item">
-					<div class="rollback-main">
-						<div class="rollback-row">
-							<span class="rollback-name">Rollback #{{ job.jobId }}</span>
-							<span class="iz-pill" :class="statusTone(job.status)">{{ formatStatus(job.status) }}</span>
-						</div>
-						<div class="rollback-meta">
-							<span>Mode: {{ job.mode === 'apply' ? 'Apply' : 'Dry-run' }}</span>
-							<span>Source backup: #{{ job.sourceBackupJobId }}</span>
-							<span>{{ formatDate(job.createdAt) }}</span>
-						</div>
-						<div v-if="job.errorMessage" class="rollback-error">
-							{{ job.errorMessage }}
-						</div>
-						<div v-if="hasRollbackValidationSummary(job)" class="rollback-validation">
-							<div class="rollback-validation-status" :class="{ blocked: job.result?.canApply === false, ready: job.result?.canApply === true }">
-								{{ job.result?.canApply === true ? 'Validation passed' : 'Validation blocked' }}
-							</div>
-							<div v-if="rollbackValidationErrors(job).length" class="rollback-validation-section">
-								<div class="rollback-validation-label">
-									Validation errors
-								</div>
-								<ul class="rollback-validation-list">
-									<li v-for="message in rollbackValidationErrors(job)" :key="message">
-										{{ message }}
-									</li>
-								</ul>
-							</div>
-							<div v-if="rollbackWarnings(job).length" class="rollback-validation-section">
-								<div class="rollback-validation-label">
-									Warnings
-								</div>
-								<ul class="rollback-validation-list warnings">
-									<li v-for="message in rollbackWarnings(job)" :key="message">
-										{{ message }}
-									</li>
-								</ul>
-							</div>
-							<div v-if="rollbackImpactEntries(job).length" class="rollback-impact">
-								<span v-for="[key, value] in rollbackImpactEntries(job)" :key="key" class="rollback-impact-chip">
-									{{ formatImpactKey(key) }}: {{ value }}
-								</span>
-							</div>
-						</div>
-					</div>
-					<div class="rollback-actions">
-						<IzButton v-if="job.mode === 'dry_run' && job.status === 'completed' && job.result?.canApply === true"
-							type="primary"
-							:disabled="creatingRollback"
-							@click="createRollbackJob(job.sourceBackupJobId, 'apply')">
-							Apply Rollback
-						</IzButton>
-					</div>
-				</div>
-			</div>
-			<Pagination v-model:offset="rollbackOffset"
-				:limit="ROLLBACK_PAGE"
-				:count="rollbackJobs.length"
-				label="rollback jobs" />
-		</div>
-
-		<ConfirmDialog v-if="deleteTarget"
-			:title="'Delete Backup #' + deleteTarget.jobId"
-			message="This cannot be undone. The archive is removed permanently."
-			confirm-label="Delete backup"
-			busy-label="Deleting…"
-			danger
-			:busy="actionLoading === deleteTarget.jobId"
-			:error="deleteError"
-			@confirm="deleteJob"
-			@cancel="deleteTarget = null; deleteError = ''" />
-	</div>
-</template>
-
 <script setup lang="ts">
+/**
+ * Backups and rollbacks for one organization.
+ *
+ * Both lists are `.iz-row--card` expandables, the same shape as the
+ * organization rows they are nested inside. What was 700 lines of local
+ * structural CSS — `.job-card`, `.status-indicator`, `.progress-track`,
+ * `.timeline`, `.rollback-item` — is now the theme's row, pill, badge, meter
+ * and inset primitives; only grid tracks, gaps and the one animation the
+ * theme has no variant for stay here.
+ *
+ * Two things the API returns that this never used to show:
+ *   - a job's `steps`, which the single-job endpoint has always returned and
+ *     which are the honest answer to "how far along is it";
+ *   - rollback `steps` and events, whose endpoint was never called at all.
+ */
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { generateUrl } from '@nextcloud/router'
 import ConfirmDialog from '../../ConfirmDialog.vue'
 import Pagination from '../../ui/Pagination.vue'
-import IzButton from '../../ui/IzButton.vue'
-import IzSpinner from '../../ui/IzSpinner.vue'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import axios from '@nextcloud/axios'
-import { generateOcsUrl, generateUrl } from '@nextcloud/router'
+import IzChevron from '../../ui/IzChevron.vue'
+import JobSteps from '../../jobs/JobSteps.vue'
+import JobEvents from '../../jobs/JobEvents.vue'
+import { ocs } from '../../../lib/api'
 import { confirmPassword } from '../../../lib/passwordConfirmation'
+import { formatDateTime, formatFileSize } from '../../../lib/format'
+import { isActive, statusLabel, statusTone } from '../../../lib/jobs'
+import type { BackupJob, JobEvent, Organization, RollbackJob } from '../../../types'
 
-import Download from 'vue-material-design-icons/Download.vue'
-import Plus from 'vue-material-design-icons/Plus.vue'
-import Check from 'vue-material-design-icons/Check.vue'
-import AlertCircle from 'vue-material-design-icons/AlertCircle.vue'
-import ClockOutline from 'vue-material-design-icons/ClockOutline.vue'
-import Delete from 'vue-material-design-icons/Delete.vue'
-import ChevronDown from 'vue-material-design-icons/ChevronDown.vue'
-import CalendarClock from 'vue-material-design-icons/CalendarClock.vue'
-import TimerSand from 'vue-material-design-icons/TimerSand.vue'
-import CloudDownload from 'vue-material-design-icons/CloudDownload.vue'
-import DatabaseOff from 'vue-material-design-icons/DatabaseOff.vue'
-import TimelineText from 'vue-material-design-icons/TimelineText.vue'
+const props = defineProps<{ org: Organization }>()
 
-const props = defineProps<{
-	organization: any
-}>()
+/* Offset paging. Both endpoints answer {jobs, limit, offset} with no total,
+   so Pagination infers "there is more" from a full page. Retention keeps only
+   the newest 7 finished jobs per organization, so a second page is rare — but
+   the previous hardcoded offset 0 made anything past the first page
+   unreachable outright. */
+const JOBS_PAGE = 20
+const ROLLBACK_PAGE = 20
+const EVENTS_PAGE = 200
 
-type RollbackResult = {
-	canApply?: boolean
-	validationErrors?: unknown
-	warnings?: unknown
-	impact?: unknown
-}
+const jobs = ref<BackupJob[]>([])
+const jobsOffset = ref(0)
+const rollbacks = ref<RollbackJob[]>([])
+const rollbackOffset = ref(0)
 
-type RollbackJobSummary = {
-	result?: RollbackResult | null
-}
+const loading = ref(true)
+const listError = ref('')
+const actionError = ref('')
 
-const initialLoading = ref(true)
+const backupType = ref<'full' | 'incremental'>('full')
 const creating = ref(false)
-const creatingRollback = ref(false)
-const actionLoading = ref<number | null>(null)
-const jobs = ref<any[]>([])
-const rollbackJobs = ref<any[]>([])
-const selectedJob = ref<any | null>(null)
-const events = ref<any[]>([])
-const deleteTarget = ref<any | null>(null)
+const rollbackBusy = ref(false)
+const busyJobId = ref<number | null>(null)
+
+/* The expanded backup, fetched in full because only the single-job endpoint
+   populates `steps` — list rows always carry `steps: []`. */
+const openJobId = ref<number | null>(null)
+const job = ref<BackupJob | null>(null)
+const jobEvents = ref<JobEvent[]>([])
+const jobPending = ref(false)
+const jobError = ref('')
+
+const openRollbackId = ref<number | null>(null)
+const rollback = ref<RollbackJob | null>(null)
+const rollbackEvents = ref<JobEvent[]>([])
+const rollbackPending = ref(false)
+const rollbackError = ref('')
+
+const deleteTarget = ref<BackupJob | null>(null)
 const deleteError = ref('')
 
-/* Offset paging. The endpoints answer {jobs, limit, offset} with no total, so
-   the control infers "there is more" from a full page. Previously these were
-   hardcoded to offset 0, which made job 21 and older unreachable. */
-const JOBS_PAGE = 20
-const ROLLBACK_PAGE = 30
-const jobsOffset = ref(0)
-const rollbackOffset = ref(0)
-const selectedBackupType = ref<'full' | 'incremental'>('full')
+let jobTimer: ReturnType<typeof setInterval> | null = null
+let listTimer: ReturnType<typeof setInterval> | null = null
 
-let pollTimer: ReturnType<typeof setInterval> | null = null
-let rollbackPollTimer: ReturnType<typeof setInterval> | null = null
+const orgId = computed(() => Number(props.org?.id || 0))
 
-const organizationId = computed(() => Number(props.organization?.id || 0))
+const base = () => `organizations/${orgId.value}/backups`
 
-const jobsUrl = () => generateOcsUrl(`apps/organization/organizations/${props.organization.id}/backups/jobs`)
-const jobUrl = (jobId: number) => generateOcsUrl(`apps/organization/organizations/${props.organization.id}/backups/jobs/${jobId}`)
-const eventsUrl = (jobId: number) => generateOcsUrl(`apps/organization/organizations/${props.organization.id}/backups/jobs/${jobId}/events`)
-const rollbackJobsUrl = () => generateOcsUrl(`apps/organization/organizations/${props.organization.id}/backups/rollback-jobs`)
-const downloadUrl = (jobId: number) => generateUrl(`/apps/organization/organizations/${props.organization.id}/backups/jobs/${jobId}/download`)
+/**
+ * confirmPassword() rejects with the bare string 'cancelled'.
+ * @param e
+ */
+function describe(e: unknown): string {
+	if (e === 'cancelled') return 'Password confirmation was cancelled.'
+	return e instanceof Error ? e.message : String(e)
+}
 
-function isActiveStatus(status: string): boolean {
-	return ['queued', 'running'].includes(status)
+/* ── Fetching ───────────────────────────────────────────────────────────── */
+
+/**
+ * Load the current page of backup jobs.
+ */
+async function fetchJobs() {
+	const data = await ocs<{ jobs: BackupJob[] }>(`${base()}/jobs`, {
+		params: { limit: JOBS_PAGE, offset: jobsOffset.value },
+	})
+	jobs.value = data?.jobs ?? []
+	// A page emptied by a delete should step back rather than strand the user
+	// on a blank one.
+	if (!jobs.value.length && jobsOffset.value > 0) {
+		jobsOffset.value = Math.max(0, jobsOffset.value - JOBS_PAGE)
+	}
 }
 
 /**
- * Explicit table, neutral fallback — never build a class from data. The old
- * `.status-badge` + :class="job.status" pattern also emitted classes for
- * statuses that have no rule (expired, deleted), which rendered unstyled.
+ * Load the current page of rollback jobs, and start or stop the list poll to match.
  */
-const STATUS_TONE: Record<string, string> = {
-	queued: 'iz-pill--muted',
-	running: 'iz-pill--accent',
-	completed: 'iz-pill--success',
-	failed: 'iz-pill--danger',
-	expired: 'iz-pill--warning',
-	deleted: 'iz-pill--muted',
-}
-
-function statusTone(status: string): string {
-	return STATUS_TONE[status] ?? 'iz-pill--muted'
-}
-
-function formatStatus(status: string): string {
-	const map: Record<string, string> = {
-		queued: 'Queued',
-		running: 'Running',
-		completed: 'Completed',
-		failed: 'Failed',
+async function fetchRollbacks() {
+	const data = await ocs<{ jobs: RollbackJob[] }>(`${base()}/rollback-jobs`, {
+		params: { limit: ROLLBACK_PAGE, offset: rollbackOffset.value },
+	})
+	rollbacks.value = data?.jobs ?? []
+	if (!rollbacks.value.length && rollbackOffset.value > 0) {
+		rollbackOffset.value = Math.max(0, rollbackOffset.value - ROLLBACK_PAGE)
+		return
 	}
-	return map[status] ?? status
+	// Poll the list only while something is actually moving.
+	if (rollbacks.value.some((r) => isActive(r.status))) startListPolling()
+	else stopListPolling()
 }
 
-function formatBackupType(type: string | null | undefined): string {
-	return type === 'incremental' ? 'Incremental' : 'Full'
-}
-
-function formatDate(raw: string | null): string {
-	if (!raw) return '—'
+/**
+ * Fetch one backup job with its steps, plus its event log.
+ *
+ * Returns the job so callers can decide whether to poll without re-reading
+ * the ref, which TypeScript has already narrowed to null by that point.
+ * @param jobId the backup job to load
+ */
+async function loadJobDetail(jobId: number): Promise<BackupJob | null> {
+	jobPending.value = true
+	jobError.value = ''
 	try {
-		const d = new Date(raw)
-		if (isNaN(d.getTime())) return raw
-		return d.toLocaleString(undefined, {
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-		})
-	} catch {
-		return raw
+		const [detail, events] = await Promise.all([
+			ocs<{ job: BackupJob }>(`${base()}/jobs/${jobId}`),
+			ocs<{ events: JobEvent[] }>(`${base()}/jobs/${jobId}/events`, {
+				params: { limit: EVENTS_PAGE, offset: 0 },
+			}),
+		])
+		job.value = detail?.job ?? null
+		jobEvents.value = events?.events ?? []
+		return job.value
+	} catch (e) {
+		jobError.value = describe(e)
+		return null
+	} finally {
+		jobPending.value = false
 	}
 }
 
-function formatFileSize(bytes: number): string {
-	if (!bytes || bytes === 0) return '0 B'
-	const k = 1024
-	const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-	const i = Math.floor(Math.log(bytes) / Math.log(k))
-	return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-}
-
-function rollbackValidationErrors(job: RollbackJobSummary): string[] {
-	return Array.isArray(job?.result?.validationErrors) ? job.result.validationErrors.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0) : []
-}
-
-function rollbackWarnings(job: RollbackJobSummary): string[] {
-	return Array.isArray(job?.result?.warnings) ? job.result.warnings.filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0) : []
-}
-
-function rollbackImpactEntries(job: RollbackJobSummary): Array<[string, string | number]> {
-	const impact = job?.result?.impact
-	if (!impact || typeof impact !== 'object' || Array.isArray(impact)) {
-		return []
-	}
-
-	return Object.entries(impact)
-		.filter(([, value]) => typeof value === 'number' || typeof value === 'string')
-		.map(([key, value]) => [key, value as string | number])
-}
-
-function hasRollbackValidationSummary(job: RollbackJobSummary): boolean {
-	return typeof job?.result?.canApply === 'boolean'
-		|| rollbackValidationErrors(job).length > 0
-		|| rollbackWarnings(job).length > 0
-		|| rollbackImpactEntries(job).length > 0
-}
-
-function formatImpactKey(key: string): string {
-	const withSpaces = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim()
-	return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1)
-}
-
-async function fetchJobs() {
-	const { data } = await axios.get(jobsUrl(), { params: { limit: JOBS_PAGE, offset: jobsOffset.value } })
-	jobs.value = data?.ocs?.data?.jobs ?? []
-	// A page that empties after a delete should step back rather than strand
-	// the user on a blank page.
-	if (jobs.value.length === 0 && jobsOffset.value > 0) {
-		jobsOffset.value = Math.max(0, jobsOffset.value - JOBS_PAGE)
-		await fetchJobs()
+/**
+ * Fetch one rollback job with its steps, plus its event log — an endpoint the UI never called before.
+ * @param jobId
+ */
+async function loadRollbackDetail(jobId: number) {
+	rollbackPending.value = true
+	rollbackError.value = ''
+	try {
+		const [detail, events] = await Promise.all([
+			ocs<{ job: RollbackJob }>(`${base()}/rollback-jobs/${jobId}`),
+			ocs<{ events: JobEvent[] }>(`${base()}/rollback-jobs/${jobId}/events`, {
+				params: { limit: EVENTS_PAGE, offset: 0 },
+			}),
+		])
+		rollback.value = detail?.job ?? null
+		rollbackEvents.value = events?.events ?? []
+	} catch (e) {
+		rollbackError.value = describe(e)
+	} finally {
+		rollbackPending.value = false
 	}
 }
 
-async function fetchRollbackJobs() {
-	const { data } = await axios.get(rollbackJobsUrl(), { params: { limit: ROLLBACK_PAGE, offset: rollbackOffset.value } })
-	rollbackJobs.value = data?.ocs?.data?.jobs ?? []
+/* ── Polling ────────────────────────────────────────────────────────────── */
 
-	const hasActive = rollbackJobs.value.some((job) => isActiveStatus(job.status))
-	if (hasActive) {
-		startRollbackPolling()
-	} else {
-		stopRollbackPolling()
-	}
+/**
+ * False while the tab is in the background, so a tick can be skipped.
+ *
+ * Both timers skip their tick rather than clearing themselves, and fire one
+ * immediate refresh on return — the pattern superadminpage's HandoverPanel and
+ * SystemHealthPanel both settled on. A 2s poll that keeps running in a
+ * background tab is load with no reader.
+ */
+function pollable(): boolean {
+	return typeof document === 'undefined' || document.visibilityState === 'visible'
 }
 
-watch(jobsOffset, () => {
-	// Collapse any open detail: its job may not be on the new page.
-	stopPolling()
-	selectedJob.value = null
-	events.value = []
-	fetchJobs()
-})
-watch(rollbackOffset, () => fetchRollbackJobs())
-
-async function fetchJob(jobId: number) {
-	const { data } = await axios.get(jobUrl(jobId))
-	return data?.ocs?.data?.job ?? null
-}
-
-async function fetchEvents(jobId: number) {
-	const { data } = await axios.get(eventsUrl(jobId), { params: { limit: 200, offset: 0 } })
-	events.value = data?.ocs?.data?.events ?? []
-}
-
-function startPolling(jobId: number) {
-	stopPolling()
-	pollTimer = setInterval(async () => {
+/**
+ * Refresh the open job every 2s until it stops being queued or running.
+ * @param jobId
+ */
+function startJobPolling(jobId: number) {
+	stopJobPolling()
+	jobTimer = setInterval(async () => {
+		if (!pollable()) return
 		try {
-			const job = await fetchJob(jobId)
-			if (!job) return
-			selectedJob.value = job
+			const [detail, events] = await Promise.all([
+				ocs<{ job: BackupJob }>(`${base()}/jobs/${jobId}`),
+				ocs<{ events: JobEvent[] }>(`${base()}/jobs/${jobId}/events`, {
+					params: { limit: EVENTS_PAGE, offset: 0 },
+				}),
+			])
+			if (openJobId.value !== jobId) return stopJobPolling()
+			if (!detail?.job) return
+			job.value = detail.job
+			jobEvents.value = events?.events ?? []
+			jobError.value = ''
 			await fetchJobs()
-			await fetchEvents(jobId)
-
-			if (!isActiveStatus(job.status)) {
-				stopPolling()
-			}
-		} catch {
-			// Silently ignore polling errors
+			if (!isActive(detail.job.status)) stopJobPolling()
+		} catch (e) {
+			// Say so rather than going quietly still. The previous version
+			// swallowed this, so a job whose polling had died looked merely slow.
+			stopJobPolling()
+			jobError.value = `${describe(e)} Live updates stopped; reopen the job to retry.`
 		}
 	}, 2000)
 }
 
-function stopPolling() {
-	if (pollTimer) {
-		clearInterval(pollTimer)
-		pollTimer = null
+/**
+ * Cancel the open-job poll.
+ */
+function stopJobPolling() {
+	if (jobTimer) {
+		clearInterval(jobTimer)
+		jobTimer = null
 	}
 }
 
-function startRollbackPolling() {
-	if (rollbackPollTimer) {
-		return
-	}
-	rollbackPollTimer = setInterval(async () => {
-		try {
-			await fetchRollbackJobs()
-		} catch {
-			// Silently ignore polling errors
-		}
+/**
+ * Refresh the rollback list every 2.5s while any rollback is still moving. Idempotent.
+ */
+function startListPolling() {
+	if (listTimer) return
+	listTimer = setInterval(() => {
+		if (!pollable()) return
+		fetchRollbacks().catch(() => stopListPolling())
 	}, 2500)
 }
 
-function stopRollbackPolling() {
-	if (rollbackPollTimer) {
-		clearInterval(rollbackPollTimer)
-		rollbackPollTimer = null
+/**
+ * Cancel the rollback list poll.
+ */
+function stopListPolling() {
+	if (listTimer) {
+		clearInterval(listTimer)
+		listTimer = null
 	}
 }
 
+/**
+ * Catch up immediately when the tab comes back to the foreground.
+ */
+function onVisibility() {
+	if (!pollable()) return
+	if (openJobId.value !== null && job.value && isActive(job.value.status)) {
+		loadJobDetail(openJobId.value)
+	}
+	if (listTimer) fetchRollbacks().catch(() => stopListPolling())
+}
+
+/* ── Expanding ──────────────────────────────────────────────────────────── */
+
+/**
+ * Expand or collapse a backup job, loading its detail on open.
+ * @param row
+ */
+async function toggleJob(row: BackupJob) {
+	if (openJobId.value === row.jobId) {
+		stopJobPolling()
+		openJobId.value = null
+		job.value = null
+		jobEvents.value = []
+		return
+	}
+	stopJobPolling()
+	openJobId.value = row.jobId
+	job.value = null
+	jobEvents.value = []
+	const detail = await loadJobDetail(row.jobId)
+	if (detail && isActive(detail.status)) startJobPolling(row.jobId)
+}
+
+/**
+ * Expand or collapse a rollback job, loading its detail on open.
+ * @param row
+ */
+async function toggleRollback(row: RollbackJob) {
+	if (openRollbackId.value === row.jobId) {
+		openRollbackId.value = null
+		rollback.value = null
+		rollbackEvents.value = []
+		return
+	}
+	openRollbackId.value = row.jobId
+	rollback.value = null
+	rollbackEvents.value = []
+	await loadRollbackDetail(row.jobId)
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────── */
+
+/**
+ * Start a backup of the selected type and open it.
+ */
 async function createJob() {
 	creating.value = true
+	actionError.value = ''
 	try {
 		await confirmPassword()
-		const body = new URLSearchParams()
-		body.set('backupType', selectedBackupType.value)
-		const { data } = await axios.post(jobsUrl(), body, {
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-			},
+		const data = await ocs<{ job: BackupJob }>(`${base()}/jobs`, {
+			method: 'POST',
+			form: true,
+			body: { backupType: backupType.value },
 		})
-		const job = data?.ocs?.data?.job
+		jobsOffset.value = 0
 		await fetchJobs()
-		if (job?.jobId) {
-			selectedJob.value = job
-			await fetchEvents(job.jobId)
-			startPolling(job.jobId)
+		const created = data?.job
+		if (created?.jobId) {
+			openJobId.value = created.jobId
+			job.value = created
+			await loadJobDetail(created.jobId)
+			if (isActive(created.status)) startJobPolling(created.jobId)
 		}
+	} catch (e) {
+		// Previously this had no catch at all: a rejected password prompt or a
+		// 400 from an invalid backup type surfaced only as an unhandled
+		// rejection in the console, and the button just re-enabled.
+		actionError.value = describe(e)
 	} finally {
 		creating.value = false
 	}
 }
 
-async function createRollbackJob(sourceBackupJobId: number, mode: 'dry_run' | 'apply') {
-	creatingRollback.value = true
+/**
+ * Queue a rollback against a completed full backup.
+ * @param sourceBackupJobId the backup to restore from
+ * @param mode 'dry_run' reports what would change; 'apply' performs it
+ */
+async function createRollback(sourceBackupJobId: number, mode: 'dry_run' | 'apply') {
+	rollbackBusy.value = true
+	actionError.value = ''
 	try {
 		await confirmPassword()
-		const body = new URLSearchParams()
-		body.set('sourceBackupJobId', String(sourceBackupJobId))
-		body.set('mode', mode)
-		await axios.post(rollbackJobsUrl(), body, {
-			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded',
-			},
+		await ocs(`${base()}/rollback-jobs`, {
+			method: 'POST',
+			form: true,
+			body: { sourceBackupJobId: String(sourceBackupJobId), mode },
 		})
-		await fetchRollbackJobs()
+		rollbackOffset.value = 0
+		await fetchRollbacks()
+	} catch (e) {
+		actionError.value = describe(e)
 	} finally {
-		creatingRollback.value = false
-	}
-}
-
-async function toggleJob(job: any) {
-	if (selectedJob.value?.jobId === job.jobId) {
-		selectedJob.value = null
-		events.value = []
-		stopPolling()
-		return
-	}
-	selectedJob.value = await fetchJob(job.jobId)
-	await fetchEvents(job.jobId)
-	if (selectedJob.value?.status && isActiveStatus(selectedJob.value.status)) {
-		startPolling(job.jobId)
+		rollbackBusy.value = false
 	}
 }
 
 /**
  * BackupDownloadController 404s unless the job is completed AND has a
  * non-empty artifactName AND has not expired AND the file still exists.
- * The UI only checked status, and because download() navigates the whole
- * page via window.location.href, that 404 discarded all component state.
+ * download() navigates the whole page, so that 404 would discard the SPA.
  * The file-exists check cannot be done client-side; the rest can.
- * @param job
+ * @param row
  */
-function downloadBlockedReason(job: any): string {
-	if (!job || job.status !== 'completed') return ''
-	if (!job.artifactName) return 'No archive was produced for this job.'
-	const raw = job.expiresAt
-	if (raw) {
-		const t = Date.parse(String(raw).replace(' ', 'T') + 'Z')
+function downloadBlockedReason(row: BackupJob): string {
+	if (row.status !== 'completed') return ''
+	if (!row.artifactName) return 'No archive was produced for this job.'
+	if (row.expiresAt) {
+		const t = Date.parse(String(row.expiresAt).replace(' ', 'T') + 'Z')
 		if (Number.isFinite(t) && t <= Date.now()) {
 			return 'The archive expired and was removed after 24 hours.'
 		}
@@ -645,777 +373,784 @@ function downloadBlockedReason(job: any): string {
 	return ''
 }
 
-async function download(job: any) {
-	await confirmPassword()
-	window.location.href = downloadUrl(job.jobId)
+/**
+ * Navigate to the archive. Not an XHR: the controller streams the file.
+ * @param row the backup whose archive to fetch
+ */
+async function download(row: BackupJob) {
+	actionError.value = ''
+	try {
+		await confirmPassword()
+		window.location.href = generateUrl(
+			`/apps/organization/organizations/${orgId.value}/backups/jobs/${row.jobId}/download`)
+	} catch (e) {
+		actionError.value = describe(e)
+	}
 }
 
-function confirmDelete(job: any) {
-	deleteTarget.value = job
-}
-
+/**
+ * Delete the backup the confirm dialog is pointing at.
+ */
 async function deleteJob() {
-	if (!deleteTarget.value) return
-	const job = deleteTarget.value
-	actionLoading.value = job.jobId
+	const target = deleteTarget.value
+	if (!target) return
+	busyJobId.value = target.jobId
 	deleteError.value = ''
 	try {
 		await confirmPassword()
-		await axios.delete(jobUrl(job.jobId))
-		if (selectedJob.value?.jobId === job.jobId) {
-			// Without this the 2s timer keeps polling a job that now 404s. The
-			// stopPolling() inside the tick is unreachable once fetchJob returns
-			// null, so the interval ran forever.
-			stopPolling()
-			selectedJob.value = null
-			events.value = []
+		await ocs(`${base()}/jobs/${target.jobId}`, { method: 'DELETE' })
+		if (openJobId.value === target.jobId) {
+			// Without this the 2s timer keeps polling a job that now 404s.
+			stopJobPolling()
+			openJobId.value = null
+			job.value = null
+			jobEvents.value = []
 		}
 		await fetchJobs()
 		deleteTarget.value = null
-	} catch (e: any) {
-		// Previously the finally closed the dialog regardless, so a failed
-		// delete looked identical to a successful one.
-		deleteError.value = e === 'cancelled'
-			? 'Password confirmation was cancelled.'
-			: (e?.response?.data?.ocs?.meta?.message || 'Could not delete this backup.')
+	} catch (e) {
+		// The dialog stays open carrying the reason; a failed delete used to
+		// look identical to a successful one.
+		deleteError.value = describe(e)
 	} finally {
-		actionLoading.value = null
+		busyJobId.value = null
 	}
 }
 
-async function resetAndReload() {
-	stopPolling()
-	stopRollbackPolling()
+/* ── Derived ────────────────────────────────────────────────────────────── */
+
+/**
+     Only a completed full backup can be rolled back — the service rejects
+    incrementals outright.
+ * @param row
+ */
+function canRollback(row: BackupJob): boolean {
+	return row.status === 'completed' && row.backupType === 'full' && !!row.artifactName
+}
+
+/**
+ * Apply is gated server-side on a completed dry run that passed validation.
+ * @param row
+ */
+function canApply(row: RollbackJob): boolean {
+	return row.mode === 'dry_run' && row.status === 'completed' && row.result?.canApply === true
+}
+
+const warnings = computed(() => job.value?.result?.summary?.warnings ?? [])
+const counts = computed(() => Object.entries(job.value?.result?.summary?.counts ?? {}))
+
+const validationErrors = computed(() => rollback.value?.result?.validationErrors ?? [])
+const rollbackWarnings = computed(() => rollback.value?.result?.warnings ?? [])
+const impact = computed(() => Object.entries(rollback.value?.result?.impact ?? {}))
+const hasValidation = computed(() =>
+	typeof rollback.value?.result?.canApply === 'boolean'
+	|| validationErrors.value.length > 0
+	|| rollbackWarnings.value.length > 0
+	|| impact.value.length > 0)
+
+/**
+ * Turn an API key such as `deckBoards` into "Deck boards".
+ * @param key
+ */
+function humanKey(key: string): string {
+	const spaced = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim()
+	return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+/**
+ * Display name for a backup type.
+ * @param type
+ */
+function backupTypeLabel(type: string): string {
+	return type === 'incremental' ? 'Incremental' : 'Full'
+}
+
+/**
+ * Display name for a trigger source.
+ * @param source
+ */
+function triggerLabel(source: string): string {
+	return source === 'scheduled' ? 'Scheduled' : 'Manual'
+}
+
+/* ── Lifecycle ──────────────────────────────────────────────────────────── */
+
+/**
+ * Reset everything and refetch — used on mount and whenever the organization changes.
+ */
+async function reload() {
+	stopJobPolling()
+	stopListPolling()
+	openJobId.value = null
+	openRollbackId.value = null
+	job.value = null
+	rollback.value = null
+	jobEvents.value = []
+	rollbackEvents.value = []
 	jobs.value = []
-	rollbackJobs.value = []
-	selectedJob.value = null
-	events.value = []
-	deleteTarget.value = null
-	actionLoading.value = null
+	rollbacks.value = []
+	listError.value = ''
+	actionError.value = ''
 
-	if (!organizationId.value) {
-		initialLoading.value = false
+	if (!orgId.value) {
+		loading.value = false
 		return
 	}
-
-	initialLoading.value = true
+	loading.value = true
 	try {
-		await fetchJobs()
-		await fetchRollbackJobs()
+		await Promise.all([fetchJobs(), fetchRollbacks()])
+	} catch (e) {
+		listError.value = describe(e)
 	} finally {
-		initialLoading.value = false
+		loading.value = false
 	}
 }
 
-watch(organizationId, async (newId, oldId) => {
-	if (newId === oldId) {
-		return
-	}
-	await resetAndReload()
+watch(orgId, (next, prev) => {
+	if (next !== prev) reload()
 }, { immediate: true })
 
+/* Changing page collapses the open detail — that job may not be on the new
+   page — and stops the timer that was polling it. */
+watch(jobsOffset, async () => {
+	stopJobPolling()
+	openJobId.value = null
+	job.value = null
+	jobEvents.value = []
+	try {
+		await fetchJobs()
+	} catch (e) {
+		listError.value = describe(e)
+	}
+})
+
+watch(rollbackOffset, async () => {
+	openRollbackId.value = null
+	rollback.value = null
+	rollbackEvents.value = []
+	try {
+		await fetchRollbacks()
+	} catch (e) {
+		listError.value = describe(e)
+	}
+})
+
+document.addEventListener('visibilitychange', onVisibility)
+
 onBeforeUnmount(() => {
-	stopPolling()
-	stopRollbackPolling()
+	stopJobPolling()
+	stopListPolling()
+	document.removeEventListener('visibilitychange', onVisibility)
 })
 </script>
 
-<style scoped lang="scss">
-/* ─── Section Root ─── */
-.backup-section {
+<template>
+	<div class="backups">
+		<!-- ── Backups ──────────────────────────────────────────────────── -->
+		<section class="iz-panel iz-panel--flush">
+			<header class="iz-panel__header">
+				<h4 class="iz-panel__title">
+					Backups
+					<span v-if="jobs.length" class="iz-badge iz-badge--muted">{{ jobs.length }}</span>
+				</h4>
+				<div class="backups__tools">
+					<select v-model="backupType"
+						class="iz-select backups__select"
+						aria-label="Backup type"
+						:disabled="creating">
+						<option value="full">
+							Full backup
+						</option>
+						<option value="incremental">
+							Incremental backup
+						</option>
+					</select>
+					<button class="iz-btn iz-btn--primary iz-btn--sm"
+						type="button"
+						:disabled="creating"
+						@click="createJob">
+						<span v-if="creating" class="iz-spinner" />
+						{{ creating ? 'Starting…' : 'New backup' }}
+					</button>
+				</div>
+			</header>
+
+			<p class="backups__note">
+				Exports shared project files as a ZIP with readable summaries, spreadsheet-friendly tables
+				and JSON data. Archives are deleted 24 hours after they are made, and only the seven most
+				recent jobs are kept.
+			</p>
+
+			<div v-if="actionError" class="iz-error backups__alert" role="alert">
+				{{ actionError }}
+			</div>
+
+			<div v-if="listError" class="iz-error backups__alert" role="alert">
+				{{ listError }}
+				<button class="iz-btn iz-btn--accent iz-btn--sm" type="button" @click="reload">
+					Try again
+				</button>
+			</div>
+
+			<p v-if="loading" class="iz-state">
+				Loading backup jobs…
+			</p>
+
+			<div v-else-if="!jobs.length" class="iz-empty">
+				No backups yet. Create one to export every shared project file, with an overview,
+				CSV tables, JSON metadata and the full folder structure.
+			</div>
+
+			<template v-else>
+				<div class="backups__rows">
+					<article v-for="row in jobs"
+						:key="row.jobId"
+						class="iz-row iz-row--card iz-row--expandable"
+						:class="{ 'iz-row--expanded': openJobId === row.jobId }">
+						<div class="iz-row__header"
+							role="button"
+							tabindex="0"
+							:aria-expanded="openJobId === row.jobId"
+							@click="toggleJob(row)"
+							@keydown.enter.prevent="toggleJob(row)"
+							@keydown.space.prevent="toggleJob(row)">
+							<div class="backups__ident">
+								<b class="backups__name">Backup #{{ row.jobId }}</b>
+								<span class="backups__meta">
+									{{ formatDateTime(row.createdAt) }} · {{ triggerLabel(row.triggerSource) }}
+									<template v-if="row.artifactSize"> · {{ formatFileSize(row.artifactSize) }}</template>
+								</span>
+							</div>
+
+							<!-- Indeterminate: the theme's meter is determinate only, and a
+							     collapsed row has no steps to measure against. The honest
+							     progress readout is the step list in the detail. -->
+							<div v-if="isActive(row.status)" class="backups__progress" aria-hidden="true">
+								<div class="iz-meter iz-meter--thin">
+									<div class="iz-meter__fill iz-meter__fill--accent backups__pulse" />
+								</div>
+							</div>
+
+							<div class="iz-row__actions">
+								<span class="iz-badge iz-badge--muted">{{ backupTypeLabel(row.backupType) }}</span>
+								<span class="iz-pill" :class="statusTone(row.status)">
+									<span class="iz-dot" aria-hidden="true" />{{ statusLabel(row.status) }}
+								</span>
+
+								<button v-if="canRollback(row)"
+									class="iz-btn iz-btn--sm"
+									type="button"
+									:disabled="rollbackBusy"
+									title="Check what restoring this backup would change, without changing anything"
+									@click.stop="createRollback(row.jobId, 'dry_run')">
+									Dry-run rollback
+								</button>
+
+								<button v-if="row.status === 'completed'"
+									class="iz-btn iz-btn--primary iz-btn--sm"
+									type="button"
+									:title="downloadBlockedReason(row) || 'Download the archive'"
+									:disabled="!!downloadBlockedReason(row)"
+									@click.stop="download(row)">
+									Download
+								</button>
+
+								<button class="iz-btn iz-btn--icon iz-btn--sm"
+									type="button"
+									:disabled="busyJobId === row.jobId"
+									:title="`Delete backup #${row.jobId}`"
+									:aria-label="`Delete backup #${row.jobId}`"
+									@click.stop="deleteTarget = row">
+									<span v-if="busyJobId === row.jobId" class="iz-spinner" />
+									<template v-else>
+										&times;
+									</template>
+								</button>
+
+								<IzChevron :open="openJobId === row.jobId" />
+							</div>
+						</div>
+
+						<div v-if="openJobId === row.jobId" class="iz-row__detail backups__detail">
+							<p v-if="jobPending && !job" class="iz-state">
+								Loading job detail…
+							</p>
+							<!-- Shown alongside the detail, not instead of it: a failed poll
+							     must not wipe the panel the user is reading. -->
+							<div v-if="jobError" class="iz-error" role="alert">
+								{{ jobError }}
+							</div>
+
+							<template v-if="job">
+								<div v-if="job.errorMessage" class="iz-error" role="alert">
+									{{ job.errorMessage }}
+								</div>
+
+								<div v-if="warnings.length" class="iz-inset">
+									<span class="iz-section-title">Warnings</span>
+									<ul class="backups__bullets">
+										<li v-for="(text, i) in warnings" :key="i">
+											{{ text }}
+										</li>
+									</ul>
+								</div>
+
+								<dl class="backups__kv">
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Type
+										</dt>
+										<dd class="backups__kv-value">
+											{{ backupTypeLabel(job.backupType) }}
+											<template v-if="job.baseFullJobId">
+												· based on #{{ job.baseFullJobId }}
+											</template>
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Trigger
+										</dt>
+										<dd class="backups__kv-value">
+											{{ triggerLabel(job.triggerSource) }}
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Created
+										</dt>
+										<dd class="backups__kv-value">
+											{{ formatDateTime(job.createdAt) }}
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Finished
+										</dt>
+										<dd class="backups__kv-value">
+											{{ formatDateTime(job.finishedAt) }}
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Expires
+										</dt>
+										<dd class="backups__kv-value">
+											{{ formatDateTime(job.expiresAt) }}
+										</dd>
+									</div>
+									<div v-if="job.artifactSize" class="backups__kv-item">
+										<dt class="iz-label">
+											Archive size
+										</dt>
+										<dd class="backups__kv-value">
+											{{ formatFileSize(job.artifactSize) }}
+										</dd>
+									</div>
+									<div v-if="job.artifactName" class="backups__kv-item backups__kv-item--wide">
+										<dt class="iz-label">
+											Archive
+										</dt>
+										<dd class="backups__kv-value backups__mono">
+											{{ job.artifactName }}
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Requested by
+										</dt>
+										<dd class="backups__kv-value">
+											{{ job.requestedByUid === '__system__' ? 'Scheduler' : job.requestedByUid }}
+										</dd>
+									</div>
+								</dl>
+
+								<section v-if="counts.length" class="backups__section">
+									<span class="iz-section-title">Contents</span>
+									<div class="backups__chips">
+										<span v-for="[key, value] in counts" :key="key" class="iz-badge iz-badge--muted">
+											{{ humanKey(key) }}: {{ value }}
+										</span>
+									</div>
+								</section>
+
+								<!-- Steps have always been returned by this endpoint and were
+								     never rendered, so a running job showed only an animation. -->
+								<section v-if="job.steps.length" class="backups__section">
+									<span class="iz-section-title">Steps</span>
+									<JobSteps :steps="job.steps" />
+								</section>
+
+								<section class="backups__section">
+									<span class="iz-section-title">
+										Activity log
+										<span v-if="jobEvents.length" class="iz-badge iz-badge--muted">{{ jobEvents.length }}</span>
+									</span>
+									<JobEvents :events="jobEvents" :loading="jobPending" />
+								</section>
+							</template>
+						</div>
+					</article>
+				</div>
+
+				<Pagination v-model:offset="jobsOffset"
+					:limit="JOBS_PAGE"
+					:count="jobs.length"
+					label="backups" />
+			</template>
+		</section>
+
+		<!-- ── Rollbacks ────────────────────────────────────────────────── -->
+		<section class="iz-panel iz-panel--flush">
+			<header class="iz-panel__header">
+				<h4 class="iz-panel__title">
+					Rollback jobs
+					<span v-if="rollbacks.length" class="iz-badge iz-badge--muted">{{ rollbacks.length }}</span>
+				</h4>
+			</header>
+
+			<div v-if="!rollbacks.length" class="iz-empty">
+				No rollback jobs yet. Start one with “Dry-run rollback” on a completed full backup —
+				it reports what restoring would change without changing anything.
+			</div>
+
+			<template v-else>
+				<div class="backups__rows">
+					<article v-for="row in rollbacks"
+						:key="row.jobId"
+						class="iz-row iz-row--card iz-row--expandable"
+						:class="{ 'iz-row--expanded': openRollbackId === row.jobId }">
+						<div class="iz-row__header"
+							role="button"
+							tabindex="0"
+							:aria-expanded="openRollbackId === row.jobId"
+							@click="toggleRollback(row)"
+							@keydown.enter.prevent="toggleRollback(row)"
+							@keydown.space.prevent="toggleRollback(row)">
+							<div class="backups__ident">
+								<b class="backups__name">Rollback #{{ row.jobId }}</b>
+								<span class="backups__meta">
+									From backup #{{ row.sourceBackupJobId }} · {{ formatDateTime(row.createdAt) }}
+								</span>
+							</div>
+
+							<div v-if="isActive(row.status)" class="backups__progress" aria-hidden="true">
+								<div class="iz-meter iz-meter--thin">
+									<div class="iz-meter__fill iz-meter__fill--accent backups__pulse" />
+								</div>
+							</div>
+
+							<div class="iz-row__actions">
+								<span class="iz-badge" :class="row.mode === 'apply' ? 'iz-badge--warning' : 'iz-badge--muted'">
+									{{ row.mode === 'apply' ? 'Apply' : 'Dry run' }}
+								</span>
+								<span class="iz-pill" :class="statusTone(row.status)">
+									<span class="iz-dot" aria-hidden="true" />{{ statusLabel(row.status) }}
+								</span>
+								<button v-if="canApply(row)"
+									class="iz-btn iz-btn--primary iz-btn--sm"
+									type="button"
+									:disabled="rollbackBusy"
+									@click.stop="createRollback(row.sourceBackupJobId, 'apply')">
+									Apply rollback
+								</button>
+								<IzChevron :open="openRollbackId === row.jobId" />
+							</div>
+						</div>
+
+						<div v-if="openRollbackId === row.jobId" class="iz-row__detail backups__detail">
+							<p v-if="rollbackPending && !rollback" class="iz-state">
+								Loading rollback detail…
+							</p>
+							<div v-if="rollbackError" class="iz-error" role="alert">
+								{{ rollbackError }}
+							</div>
+
+							<template v-if="rollback">
+								<div v-if="rollback.errorMessage" class="iz-error" role="alert">
+									{{ rollback.errorMessage }}
+								</div>
+
+								<div v-if="hasValidation" class="iz-inset backups__validation">
+									<span class="iz-pill"
+										:class="rollback.result?.canApply ? 'iz-pill--success' : 'iz-pill--danger'">
+										{{ rollback.result?.canApply ? 'Validation passed' : 'Validation blocked' }}
+									</span>
+
+									<div v-if="validationErrors.length">
+										<span class="iz-section-title">Validation errors</span>
+										<ul class="backups__bullets">
+											<li v-for="(text, i) in validationErrors" :key="i">
+												{{ text }}
+											</li>
+										</ul>
+									</div>
+
+									<div v-if="rollbackWarnings.length">
+										<span class="iz-section-title">Warnings</span>
+										<ul class="backups__bullets">
+											<li v-for="(text, i) in rollbackWarnings" :key="i">
+												{{ text }}
+											</li>
+										</ul>
+									</div>
+
+									<div v-if="impact.length" class="backups__chips">
+										<span v-for="[key, value] in impact" :key="key" class="iz-badge iz-badge--muted">
+											{{ humanKey(key) }}: {{ value }}
+										</span>
+									</div>
+								</div>
+
+								<dl class="backups__kv">
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Mode
+										</dt>
+										<dd class="backups__kv-value">
+											{{ rollback.mode === 'apply' ? 'Apply' : 'Dry run' }}
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Source backup
+										</dt>
+										<dd class="backups__kv-value">
+											#{{ rollback.sourceBackupJobId }}
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Created
+										</dt>
+										<dd class="backups__kv-value">
+											{{ formatDateTime(rollback.createdAt) }}
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Finished
+										</dt>
+										<dd class="backups__kv-value">
+											{{ formatDateTime(rollback.finishedAt) }}
+										</dd>
+									</div>
+									<div v-if="rollback.preRestoreBackupJobId" class="backups__kv-item">
+										<dt class="iz-label">
+											Safety snapshot
+										</dt>
+										<dd class="backups__kv-value">
+											Backup #{{ rollback.preRestoreBackupJobId }}
+										</dd>
+									</div>
+									<div class="backups__kv-item">
+										<dt class="iz-label">
+											Requested by
+										</dt>
+										<dd class="backups__kv-value">
+											{{ rollback.requestedByUid }}
+										</dd>
+									</div>
+								</dl>
+
+								<section v-if="rollback.steps.length" class="backups__section">
+									<span class="iz-section-title">Steps</span>
+									<JobSteps :steps="rollback.steps" />
+								</section>
+
+								<section class="backups__section">
+									<span class="iz-section-title">
+										Activity log
+										<span v-if="rollbackEvents.length" class="iz-badge iz-badge--muted">{{ rollbackEvents.length }}</span>
+									</span>
+									<JobEvents :events="rollbackEvents" :loading="rollbackPending" />
+								</section>
+							</template>
+						</div>
+					</article>
+				</div>
+
+				<Pagination v-model:offset="rollbackOffset"
+					:limit="ROLLBACK_PAGE"
+					:count="rollbacks.length"
+					label="rollback jobs" />
+			</template>
+		</section>
+
+		<ConfirmDialog v-if="deleteTarget"
+			:title="`Delete backup #${deleteTarget.jobId}?`"
+			message="The archive is removed permanently. This cannot be undone."
+			confirm-label="Delete backup"
+			busy-label="Deleting…"
+			danger
+			:busy="busyJobId === deleteTarget.jobId"
+			:error="deleteError"
+			@confirm="deleteJob"
+			@cancel="deleteTarget = null; deleteError = ''" />
+	</div>
+</template>
+
+<style scoped>
+/* Layout only. Every surface, border, radius, shadow, type size and colour
+   comes from an .iz-* primitive — see the class list in the template.
+   The one exception is the indeterminate pulse at the bottom: the theme's
+   meter is determinate only and ships a single keyframes rule (iz-spin). */
+.backups {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
-	padding: 20px;
+	gap: var(--iz-gap);
 }
 
-/* ─── Header / Intro ─── */
-.backup-intro {
+.backups__tools {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 16px;
-	flex-wrap: wrap;
-}
-
-.backup-actions {
-	display: flex;
-	align-items: flex-end;
-	gap: 10px;
-	flex-wrap: wrap;
-}
-
-.backup-type-picker {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.backup-type-picker label {
-	font-size: var(--iz-fs-xs);
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: var(--iz-text-secondary);
-}
-
-.backup-type-picker select {
-	min-width: 150px;
-	padding: 8px 30px 8px 10px;
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius);
-	background: var(--iz-surface);
-	color: var(--iz-text);
-	font-size: var(--iz-fs-md);
-}
-
-.intro-content {
-	display: flex;
-	align-items: center;
-	gap: 14px;
-	min-width: 0;
-}
-
-.intro-icon-wrap {
-	width: 44px;
-	height: 44px;
-	border-radius: var(--iz-radius-lg);
-	background: linear-gradient(135deg, var(--iz-accent), var(--iz-accent-bg));
-	color: var(--iz-accent-text);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-}
-
-.intro-text {
-	min-width: 0;
-}
-
-.intro-title {
-	margin: 0 0 2px;
-	font-size: var(--iz-fs-lg);
-	font-weight: 700;
-	line-height: 1.3;
-}
-
-.intro-desc {
-	margin: 0;
-	font-size: var(--iz-fs-md);
-	color: var(--iz-text-secondary);
-	line-height: 1.4;
-}
-
-/* ─── State Cards (Loading / Empty) ─── */
-.state-card {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 12px;
-	padding: 48px 24px;
-	text-align: center;
-	background: var(--iz-surface-subtle);
-	border-radius: var(--iz-radius-lg);
-	border: 1px dashed var(--iz-border);
-}
-
-.state-text {
-	margin: 0;
-	color: var(--iz-text-secondary);
-	font-size: var(--iz-fs-lg);
-}
-
-.empty-icon-wrap {
-	width: 72px;
-	height: 72px;
-	border-radius: 50%;
-	background: var(--iz-surface-inset);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	color: var(--iz-text-secondary);
-}
-
-.empty-title {
-	margin: 4px 0 0;
-	font-size: var(--iz-fs-lg);
-	font-weight: 600;
-}
-
-.empty-desc {
-	margin: 0;
-	max-width: 340px;
-	font-size: var(--iz-fs-md);
-	color: var(--iz-text-secondary);
-	line-height: 1.5;
-}
-
-/* ─── Job Cards ─── */
-.jobs-list {
-	display: flex;
-	flex-direction: column;
 	gap: 8px;
 }
 
-.job-card {
-	background: var(--iz-surface);
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius-lg);
-	overflow: hidden;
-	cursor: pointer;
-	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+/* .iz-select is width:100% in the theme — right for a stacked field, wrong in
+   a header row. Qualified on the toolbar to reach (0,3,0): this app's CSS is a
+   linked file that Nextcloud loads BEFORE the theme, so on a tie the theme
+   wins here, not the app. */
+.backups__tools .backups__select {
+	width: auto;
+	min-width: 170px;
 }
 
-.job-card:hover {
-	border-color: var(--iz-accent-bg);
-	box-shadow: var(--iz-shadow);
-}
-
-.job-card.expanded {
-	border-color: var(--iz-accent-bg);
-	box-shadow: var(--iz-shadow-lift);
-}
-
-/* ─── Job Summary Row ─── */
-.job-summary {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 14px 16px;
-	gap: 12px;
-}
-
-.job-left {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	min-width: 0;
-	flex: 1;
-}
-
-.status-indicator {
-	width: 36px;
-	height: 36px;
-	border-radius: var(--iz-radius-lg);
-	border: 1px solid transparent;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.status-indicator.queued {
-	background: var(--iz-surface-inset);
-	color: var(--iz-text-secondary);
-	border-color: var(--iz-border);
-}
-
-.status-indicator.running {
-	background: var(--iz-accent-bg);
-	color: var(--iz-accent);
-	border-color: var(--iz-accent);
-}
-
-.status-indicator.completed {
-	background: var(--iz-success-bg);
-	color: var(--iz-success);
-	border-color: var(--iz-success);
-}
-
-.status-indicator.failed {
-	background: var(--iz-danger-bg);
-	color: var(--iz-danger);
-	border-color: var(--iz-danger);
-}
-
-.job-info {
-	min-width: 0;
-	flex: 1;
-}
-
-.job-name-row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 3px;
-}
-
-.job-name {
-	font-weight: 600;
-	font-size: var(--iz-fs-lg);
-	white-space: nowrap;
-}
-
-.job-timestamps {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	flex-wrap: wrap;
-}
-
-.timestamp {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	font-size: var(--iz-fs-sm);
-	color: var(--iz-text-secondary);
-}
-
-.timestamp.expires {
-	color: var(--iz-warning);
-}
-
-.job-right {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	flex-shrink: 0;
-}
-
-.expand-icon {
-	color: var(--iz-text-secondary);
-	transition: transform 0.25s ease;
-}
-
-.expand-icon.rotated {
-	transform: rotate(180deg);
-}
-
-/* ─── Error Banner ─── */
-.error-banner {
-	display: flex;
-	align-items: flex-start;
-	gap: 8px;
-	padding: 10px 16px;
-	background: var(--iz-danger-bg);
-	color: var(--iz-text);
-	font-size: var(--iz-fs-md);
-	line-height: 1.4;
-	border-top: 1px solid var(--iz-danger);
-	border-left: 3px solid var(--iz-danger);
-}
-
-/* ─── Progress Track (Running/Queued) ─── */
-.progress-track {
-	height: 3px;
-	background: var(--iz-surface-inset);
-	overflow: hidden;
-}
-
-.progress-fill {
-	height: 100%;
-	border-radius: 2px;
-}
-
-.progress-fill.running {
-	width: 40%;
-	background: var(--iz-accent);
-	animation: progress-indeterminate 1.8s ease-in-out infinite;
-}
-
-.progress-fill.queued {
-	width: 100%;
-	background: var(--iz-surface-inset);
-	opacity: 0.3;
-	animation: progress-pulse 2s ease-in-out infinite;
-}
-
-@keyframes progress-indeterminate {
-	0% { transform: translateX(-100%); }
-	100% { transform: translateX(350%); }
-}
-
-@keyframes progress-pulse {
-	0%, 100% { opacity: 0.15; }
-	50% { opacity: 0.35; }
-}
-
-/* ─── Expanded Detail Panel ─── */
-.job-detail {
-	border-top: 1px solid var(--iz-border);
-	padding: 16px;
-	background: var(--iz-surface-subtle);
-}
-
-.detail-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-	gap: 12px;
-	margin-bottom: 20px;
-}
-
-.detail-item {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.detail-label {
-	font-size: var(--iz-fs-xs);
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: var(--iz-text-secondary);
-}
-
-.detail-value {
-	font-size: var(--iz-fs-md);
-	font-weight: 500;
-}
-
-.detail-value.mono {
-	font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-	font-size: var(--iz-fs-md);
-}
-
-.detail-value.capitalize {
-	text-transform: capitalize;
-}
-
-/* ─── Events Timeline ─── */
-.events-section {
-	border-top: 1px solid var(--iz-border);
-	padding-top: 16px;
-}
-
-.events-title {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin: 0 0 14px;
-	font-size: var(--iz-fs-lg);
-	font-weight: 600;
-}
-
-.events-count {
-	font-size: var(--iz-fs-xs);
-	font-weight: 700;
-	padding: 1px 7px;
-	border-radius: var(--iz-radius-pill);
-	background: var(--iz-accent);
-	color: var(--iz-accent-text);
-}
-
-.events-empty {
-	font-size: var(--iz-fs-md);
-	color: var(--iz-text-secondary);
-	padding: 12px 0;
-}
-
-.timeline {
-	display: flex;
-	flex-direction: column;
-	max-height: 320px;
-	overflow-y: auto;
-	padding-right: 4px;
-}
-
-.timeline-item {
-	display: flex;
-	gap: 12px;
-	min-height: 0;
-}
-
-.timeline-connector {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	width: 16px;
-	flex-shrink: 0;
-	padding-top: 4px;
-}
-
-.timeline-dot {
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	flex-shrink: 0;
-	border: 2px solid;
-}
-
-.timeline-dot.info {
-	border-color: var(--iz-accent);
-	background: var(--iz-accent-bg);
-}
-
-.timeline-dot.warning {
-	border-color: var(--iz-warning);
-	background: var(--iz-warning-bg);
-}
-
-.timeline-dot.error {
-	border-color: var(--iz-danger);
-	background: var(--iz-danger-bg);
-}
-
-.timeline-line {
-	width: 2px;
-	flex: 1;
-	background: var(--iz-border);
-	margin: 4px 0;
-	min-height: 12px;
-}
-
-.timeline-content {
-	flex: 1;
-	padding-bottom: 14px;
-	min-width: 0;
-}
-
-.timeline-header {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 3px;
-}
-
-.event-level-badge {
-	font-size: var(--iz-fs-micro);
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	padding: 1px 6px;
-	border-radius: var(--iz-radius-sm);
-	border: 1px solid transparent;
-}
-
-.event-level-badge.info {
-	background: var(--iz-accent-bg);
-	color: var(--iz-text);
-	border-color: var(--iz-accent);
-}
-
-.event-level-badge.warning {
-	background: var(--iz-warning-bg);
-	color: var(--iz-text);
-	border-color: var(--iz-warning);
-}
-
-.event-level-badge.error {
-	background: var(--iz-danger-bg);
-	color: var(--iz-text);
-	border-color: var(--iz-danger);
-}
-
-.event-time {
-	font-size: var(--iz-fs-xs);
-	color: var(--iz-text-secondary);
-}
-
-.event-message {
-	margin: 0;
+.backups__note {
+	margin: 0 0 var(--iz-gap);
 	font-size: var(--iz-fs-md);
 	color: var(--iz-text-secondary);
 	line-height: 1.45;
-	word-break: break-word;
 }
 
-/* ─── Rollback Jobs ─── */
-.rollback-panel {
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius-lg);
-	padding: 14px;
-	background: var(--iz-surface);
-}
-
-.rollback-header h4 {
-	margin: 0;
-	font-size: var(--iz-fs-lg);
-	font-weight: 700;
-}
-
-.rollback-empty {
-	margin-top: 10px;
-	font-size: var(--iz-fs-md);
-	color: var(--iz-text-secondary);
-}
-
-.rollback-list {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	margin-top: 10px;
-}
-
-.rollback-item {
+.backups__alert {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 10px;
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius);
-	padding: 10px;
-	background: var(--iz-surface-subtle);
+	gap: 12px;
+	flex-wrap: wrap;
+	margin-bottom: var(--iz-gap);
 }
 
-.rollback-main {
+.backups__rows {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.backups__ident {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+	flex: 1;
+}
+
+.backups__name {
+	font-size: var(--iz-fs-md);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.backups__meta {
+	font-size: var(--iz-fs-xs);
+	color: var(--iz-text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.backups__progress {
+	width: 90px;
+	flex-shrink: 0;
+}
+
+.backups__detail {
+	display: flex;
+	flex-direction: column;
+	gap: var(--iz-gap);
+}
+
+/* Stacked label-over-value pairs. The theme has no key-value primitive — the
+   chrome here is .iz-label, and only the tracks are local. */
+.backups__kv {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 12px;
+	margin: 0;
+}
+
+.backups__kv-item {
+	display: flex;
+	flex-direction: column;
 	min-width: 0;
 }
 
-.rollback-actions {
-	display: flex;
-	align-items: center;
+.backups__kv-item--wide {
+	grid-column: 1 / -1;
 }
 
-.rollback-row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
+/* .iz-label carries a 6px margin meant for a form field; inside a pair the
+   value sits directly under its label. Qualified to (0,3,0), see above. */
+.backups__kv .iz-label {
+	margin-bottom: 2px;
 }
 
-.rollback-name {
+.backups__kv-value {
+	margin: 0;
 	font-size: var(--iz-fs-md);
-	font-weight: 700;
+	overflow-wrap: anywhere;
 }
 
-.rollback-meta {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	margin-top: 4px;
+.backups__mono {
+	font-family: var(--iz-font-mono);
 	font-size: var(--iz-fs-sm);
-	color: var(--iz-text-secondary);
 }
 
-.rollback-error {
-	margin-top: 4px;
-	font-size: var(--iz-fs-sm);
-	color: var(--iz-danger);
-}
-
-.rollback-validation {
-	margin-top: 8px;
+.backups__section {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
 }
 
-.rollback-validation-status {
-	font-size: var(--iz-fs-sm);
-	font-weight: 600;
-	color: var(--iz-text-secondary);
-}
-
-.rollback-validation-status.blocked {
-	color: var(--iz-danger);
-}
-
-.rollback-validation-status.ready {
-	color: var(--iz-success);
-}
-
-.rollback-validation-section {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.rollback-validation-label {
-	font-size: var(--iz-fs-sm);
-	font-weight: 600;
-	color: var(--iz-text-secondary);
-}
-
-.rollback-validation-list {
+.backups__bullets {
 	margin: 0;
 	padding-left: 18px;
-	font-size: var(--iz-fs-sm);
-	color: var(--iz-danger);
-}
-
-.rollback-validation-list.warnings {
+	font-size: var(--iz-fs-md);
 	color: var(--iz-text-secondary);
 }
 
-.rollback-impact {
+.backups__chips {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
 }
 
-.rollback-impact-chip {
-	border-radius: var(--iz-radius-pill);
-	padding: 3px 8px;
-	font-size: var(--iz-fs-sm);
-	background: var(--iz-surface-inset);
-	color: var(--iz-text);
+.backups__validation {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	align-items: flex-start;
 }
 
-@media (max-width: 600px) {
-	.rollback-item {
-		flex-direction: column;
-		align-items: flex-start;
-	}
+/* The theme's meter is determinate; a queued or running job has no percentage
+   to report from a collapsed row, so the track pulses instead of lying about
+   one. The step list in the detail is the real readout. */
+.backups__pulse {
+	width: 100%;
+	animation: backups-pulse 1.6s ease-in-out infinite;
 }
 
-/* ─── Delete Modal ─── */
-.delete-warning {
-	color: var(--iz-text-secondary);
-	font-size: var(--iz-fs-lg);
-	margin-top: 4px;
+@keyframes backups-pulse {
+	0%, 100% { opacity: 0.25; }
+	50% { opacity: 1; }
 }
 
-/* ─── Transitions ─── */
-.expand-enter-active,
-.expand-leave-active {
-	transition: all 0.25s ease;
-	overflow: hidden;
+@media (prefers-reduced-motion: reduce) {
+	.backups__pulse { animation: none; opacity: 0.6; }
 }
 
-.expand-enter-from,
-.expand-leave-to {
-	opacity: 0;
-	max-height: 0;
-	padding: 0 16px;
-}
+@media (max-width: 700px) {
+	.backups__progress { display: none; }
 
-.expand-enter-to,
-.expand-leave-from {
-	opacity: 1;
-	max-height: 600px;
-}
-
-/* Job List Transition */
-.job-list-enter-active,
-.job-list-leave-active {
-	transition: all 0.3s ease;
-}
-
-.job-list-enter-from {
-	opacity: 0;
-	transform: translateY(-8px);
-}
-
-.job-list-leave-to {
-	opacity: 0;
-	transform: translateX(20px);
-}
-
-.job-list-move {
-	transition: transform 0.3s ease;
-}
-
-/* ─── Responsive ─── */
-@media (max-width: 600px) {
-	.backup-intro {
-		flex-direction: column;
-		align-items: flex-start;
-	}
-
-	.job-summary {
-		flex-direction: column;
-		align-items: flex-start;
-	}
-
-	.job-right {
-		width: 100%;
-		justify-content: flex-end;
-	}
-
-	.detail-grid {
-		grid-template-columns: repeat(2, 1fr);
-	}
+	.backups__meta { white-space: normal; }
 }
 </style>

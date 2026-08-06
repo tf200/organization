@@ -102,10 +102,10 @@ const tabs = computed(() => [
 				@convert="emit('convert')" />
 
 			<BackupsTab v-else-if="activeTab === 'backups'"
-				:organization="full" />
+				:org="full" />
 
 			<HandoverTab v-else
-				:organization="full"
+				:org="full"
 				:members="members" />
 		</div>
 	</div>

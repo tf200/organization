@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import IzChevron from '../ui/IzChevron.vue'
 import type { Organization } from '../../types'
 import { formatDate, titleCase } from '../../lib/format'
 
@@ -81,19 +82,7 @@ const endLabel = computed(() => {
 					<span class="iz-dot" aria-hidden="true" />{{ statusLabel }}
 				</span>
 				<span class="org-row__end">{{ endLabel }}</span>
-				<svg class="iz-row__chevron"
-					:class="{ 'iz-row__chevron--open': expanded }"
-					width="14"
-					height="14"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.5"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true">
-					<polyline points="6 9 12 15 18 9" />
-				</svg>
+				<IzChevron :open="expanded" />
 			</div>
 		</div>
 

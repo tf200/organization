@@ -215,7 +215,7 @@ async function confirmDelete() {
 }
 
 .plan-row__mono {
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--iz-font-mono);
 	font-size: var(--iz-fs-sm);
 }
 

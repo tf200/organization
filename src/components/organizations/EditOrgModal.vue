@@ -191,6 +191,6 @@ const handleSave = async () => {
 .org-id {
 	font-size: var(--iz-fs-xs);
 	color: var(--iz-text-muted);
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--iz-font-mono);
 }
 </style>

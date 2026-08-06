@@ -41,9 +41,17 @@ guide describes.
   rejects with the string `'cancelled'`, which several call sites test for.
 - **`src/components/ui/` holds plain-element replacements** for the `Nc*`
   components (`IzButton`, `IzModal`, `IzTextField`, `IzSelect`, `IzSwitch`,
-  `IzSpinner`, `IzAvatar`, `IzDateTime`). They exist because the theme's
-  primitives target bare elements — core excludes `.button-vue` from its own
-  rules, so `NcButton` can only be restyled with `:deep()` in every consumer.
+  `IzSpinner`, `IzAvatar`, `IzDateTime`, `IzChevron`, `Pagination`). They exist
+  because the theme's primitives target bare elements — core excludes
+  `.button-vue` from its own rules, so `NcButton` can only be restyled with
+  `:deep()` in every consumer.
+- **`src/components/jobs/` holds the pieces shared by the three job kinds.**
+  Backups, rollbacks and account handovers are separate services that emit an
+  identical step record and event record, so `JobSteps.vue` and `JobEvents.vue`
+  render all three, and `src/lib/jobs.ts` owns the one status→tone table, the
+  step-key names and `isActive()`. Two private copies of that table had already
+  drifted: one listed `skipped` as a *job* status, which no job ever has, and
+  neither listed `expired` or `deleted`, which a backup job routinely is.
 - **`js/` and `css/` are committed build outputs.** Run `npm run build` and
   commit the result with any `src/` change. The build is reproducible: a clean
   tree after building means source and bundle agree. Note `css/` accumulates a
@@ -117,6 +125,16 @@ post-login redirect lands on port 80 and 404s. Navigate to
 - Every UI string is hardcoded English; there is no `t()` usage, matching the
   sibling apps.
 - No unsaved-changes guard on any modal.
+- **Every mutating backup route is `#[PasswordConfirmationRequired]`; no
+  handover route is** — including the real, irreversible transfer. The UI
+  matches the server rather than papering over it, so starting a transfer asks
+  for confirmation but never for a password. That asymmetry is a server-side
+  decision to make, not a frontend one.
+- `listBackupJobs` and `listHandoverJobs` both accept a `status` filter that no
+  UI uses. `GET /backups/jobs/my-organization` is never called at all.
+- Backup retention keeps only the newest **7** finished jobs per organization
+  (`RETENTION_JOBS`), so paging past the first page is rare in practice even
+  though the controls are wired.
 - `adminpage`'s `/api/backup-jobs` returns 500. Not this app's bug: it does a
   server-to-server loopback to `getAbsoluteURL()`, which builds a portless URL
   from `overwrite.cli.url`, and forwards the browser `Cookie` header.

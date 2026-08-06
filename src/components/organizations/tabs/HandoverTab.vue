@@ -1,360 +1,57 @@
-<template>
-	<div class="account-handover">
-		<div v-if="!selectedJob" class="handover-main">
-			<!-- New Handover Form -->
-			<div class="handover-form section">
-				<h3>Start New Handover</h3>
-				<p class="section-description">
-					Transfer ownership of projects, deck boards, and other content from one member to another.
-				</p>
-
-				<div class="form-grid">
-					<div class="form-group">
-						<label for="source-member">Source member</label>
-						<IzSelect v-model="form.sourceUserId"
-							input-id="source-member"
-							aria-label="Source member"
-							:options="memberOptions"
-							placeholder="Select source member"
-							:disabled="loading" />
-					</div>
-
-					<div class="form-group">
-						<label for="target-member">Target member</label>
-						<IzSelect v-model="form.targetUserId"
-							input-id="target-member"
-							aria-label="Target member"
-							:options="memberOptions"
-							placeholder="Select target member"
-							:disabled="loading" />
-					</div>
-				</div>
-
-				<div class="options-grid">
-					<IzSwitch v-model="form.removeSourceFromGroups"
-						type="switch"
-						:disabled="loading">
-						Remove source member from project groups
-					</IzSwitch>
-
-					<IzSwitch v-model="form.remapDeckContent"
-						type="switch"
-						:disabled="loading">
-						Remap Deck content (boards, cards)
-					</IzSwitch>
-				</div>
-
-				<div class="form-actions">
-					<IzButton type="tertiary"
-						:disabled="!isFormValid || loading"
-						@click="runDryRun">
-						<template #icon>
-							<IzSpinner v-if="loading" :size="20" />
-							<Play v-else :size="20" />
-						</template>
-						Preview (Dry Run)
-					</IzButton>
-					<IzButton type="primary"
-						:disabled="!isFormValid || loading"
-						@click="startTransfer">
-						<template #icon>
-							<IzSpinner v-if="loading" :size="20" />
-							<Play v-else :size="20" />
-						</template>
-						Start Transfer
-					</IzButton>
-				</div>
-			</div>
-
-			<!-- Jobs History -->
-			<div class="handover-history section">
-				<div class="section-header">
-					<h3>Recent Jobs</h3>
-					<IzButton type="tertiary"
-						:disabled="loadingJobs"
-						@click="fetchJobs">
-						<template #icon>
-							<Refresh :class="{ 'spinning': loadingJobs }" :size="18" />
-						</template>
-						Refresh
-					</IzButton>
-				</div>
-
-				<div v-if="loadingJobs && jobs.length === 0" class="loading-state">
-					<IzSpinner :size="48" />
-					<p>Loading jobs...</p>
-				</div>
-
-				<div v-else-if="jobs.length === 0" class="empty-state">
-					<History :size="48" />
-					<p>No handover jobs found.</p>
-				</div>
-
-				<div v-else class="jobs-list">
-					<table class="jobs-table">
-						<thead>
-							<tr>
-								<th>Status</th>
-								<th>Source / Target</th>
-								<th>Type</th>
-								<th>Created</th>
-								<th>Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr v-for="job in jobs"
-								:key="job.jobId"
-								class="job-row"
-								@click="viewJobDetails(job)">
-								<td>
-									<div class="iz-pill" :class="statusTone(job.status)">
-										{{ job.status }}
-									</div>
-								</td>
-								<td>
-									<div class="transfer-info">
-										<span class="uid">{{ job.sourceUserId }}</span>
-										<ChevronRight :size="14" />
-										<span class="uid">{{ job.targetUserId }}</span>
-									</div>
-								</td>
-								<td>
-									<span v-if="job.dryRun" class="type-tag dry-run">Dry Run</span>
-									<span v-else class="type-tag real">Real</span>
-								</td>
-								<td>
-									<IzDateTime :timestamp="new Date(job.createdAt).getTime()" />
-								</td>
-								<td class="actions-cell">
-									<IzButton v-if="job.status === 'failed'"
-										type="tertiary"
-										title="Retry"
-										@click.stop="retryJob(job)">
-										<template #icon>
-											<Refresh :size="18" />
-										</template>
-									</IzButton>
-									<IzButton type="tertiary"
-										title="View Details"
-										@click.stop="viewJobDetails(job)">
-										<template #icon>
-											<Information :size="18" />
-										</template>
-									</IzButton>
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-			</div>
-		</div>
-
-		<!-- Job Details View -->
-		<div v-else class="job-details">
-			<div class="details-header">
-				<IzButton type="tertiary" @click="selectedJob = null">
-					<template #icon>
-						<ChevronLeft :size="20" />
-					</template>
-					Back to list
-				</IzButton>
-				<h2>Job #{{ selectedJob.jobId }} Details</h2>
-				<div class="iz-pill" :class="statusTone(selectedJob.status)">
-					{{ selectedJob.status }}
-				</div>
-			</div>
-
-			<div class="details-grid">
-				<!-- Summary Card -->
-				<div class="details-card summary">
-					<h3>Summary</h3>
-					<div class="summary-info">
-						<div class="info-item">
-							<span class="label">Source:</span>
-							<span class="value">{{ selectedJob.sourceUserId }}</span>
-						</div>
-						<div class="info-item">
-							<span class="label">Target:</span>
-							<span class="value">{{ selectedJob.targetUserId }}</span>
-						</div>
-						<div class="info-item">
-							<span class="label">Type:</span>
-							<span class="value">{{ selectedJob.dryRun ? 'Dry Run' : 'Real Transfer' }}</span>
-						</div>
-						<div class="info-item">
-							<span class="label">Requested by:</span>
-							<span class="value">{{ selectedJob.requestedByUserId }}</span>
-						</div>
-						<div class="info-item">
-							<span class="label">Attempt:</span>
-							<span class="value">{{ selectedJob.attempt }}</span>
-						</div>
-						<div class="info-item">
-							<span class="label">Created:</span>
-							<span class="value"><IzDateTime :timestamp="new Date(selectedJob.createdAt).getTime()" /></span>
-						</div>
-						<div v-if="selectedJob.startedAt" class="info-item">
-							<span class="label">Started:</span>
-							<span class="value"><IzDateTime :timestamp="new Date(selectedJob.startedAt).getTime()" /></span>
-						</div>
-						<div v-if="selectedJob.finishedAt" class="info-item">
-							<span class="label">Finished:</span>
-							<span class="value"><IzDateTime :timestamp="new Date(selectedJob.finishedAt).getTime()" /></span>
-						</div>
-					</div>
-
-					<div v-if="selectedJob.errorMessage" class="error-banner">
-						<AlertCircle :size="20" />
-						<div class="error-content">
-							<strong>Error:</strong>
-							<p>{{ selectedJob.errorMessage }}</p>
-						</div>
-						<IzButton v-if="selectedJob.status === 'failed'"
-							type="primary"
-							@click="retryJob(selectedJob)">
-							Retry Failed Steps
-						</IzButton>
-					</div>
-				</div>
-
-				<!-- Options Card -->
-				<div class="details-card options">
-					<h3>Configuration</h3>
-					<ul class="options-list">
-						<li :class="{ enabled: selectedJob.dryRun }">
-							<Check v-if="selectedJob.dryRun" :size="16" />
-							<Close v-else :size="16" />
-							Dry run mode
-						</li>
-						<li :class="{ enabled: selectedJob.removeSourceFromGroups }">
-							<Check v-if="selectedJob.removeSourceFromGroups" :size="16" />
-							<Close v-else :size="16" />
-							Remove source from project groups
-						</li>
-						<li :class="{ enabled: selectedJob.remapDeckContent }">
-							<Check v-if="selectedJob.remapDeckContent" :size="16" />
-							<Close v-else :size="16" />
-							Remap Deck content
-						</li>
-					</ul>
-				</div>
-
-				<!-- Steps Card -->
-				<div class="details-card steps">
-					<h3>Execution Steps</h3>
-					<div class="steps-list">
-						<div v-for="step in selectedJob.steps" :key="step.id" class="step-item">
-							<div class="step-icon">
-								<IzSpinner v-if="step.status === 'running'" :size="20" />
-								<CheckCircle v-else-if="step.status === 'completed'" :size="20" class="success" />
-								<Information v-else-if="step.status === 'skipped'" :size="20" class="skipped" />
-								<CloseCircle v-else-if="step.status === 'failed'" :size="20" class="error" />
-								<Timer v-else :size="20" class="pending" />
-							</div>
-							<div class="step-info">
-								<div class="step-name">
-									{{ formatStepName(step.stepKey) }}
-								</div>
-								<div class="step-meta">
-									<span class="status">{{ step.status }}</span>
-									<span v-if="step.attempt > 1" class="attempt">• Attempt {{ step.attempt }}</span>
-								</div>
-								<div v-if="step.result?.warning" class="step-warning">
-									{{ step.result.warning }}
-								</div>
-								<div v-if="step.errorMessage" class="step-error">
-									{{ step.errorMessage }}
-								</div>
-								<details v-if="step.result" class="step-details">
-									<summary>Details</summary>
-									<pre>{{ formatJson(step.result) }}</pre>
-								</details>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Events Card -->
-				<div class="details-card events">
-					<div class="card-header">
-						<h3>Activity Log</h3>
-						<IzButton type="tertiary" @click="fetchEvents(selectedJob.jobId)">
-							<template #icon>
-								<Refresh :size="16" />
-							</template>
-						</IzButton>
-					</div>
-					<div ref="eventsStream" class="events-stream">
-						<div v-if="loadingEvents" class="events-loading">
-							<IzSpinner :size="24" />
-						</div>
-						<div v-else-if="events.length === 0" class="events-empty">
-							No events logged yet.
-						</div>
-						<div v-for="event in events"
-							v-else
-							:key="event.id"
-							:class="['event-item', event.level]">
-							<div class="event-time">
-								{{ formatTime(event.createdAt) }}
-							</div>
-							<div class="event-message">
-								{{ event.message }}
-							</div>
-							<div v-if="event.stepKey" class="event-meta">
-								Step: {{ formatStepName(event.stepKey) }}
-							</div>
-							<div v-if="event.payload" class="event-payload">
-								<div class="event-summary">
-									{{ formatPayloadSummary(event.payload) }}
-								</div>
-								<details class="event-details">
-									<summary>Payload</summary>
-									<pre>{{ formatJson(event.payload) }}</pre>
-								</details>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</template>
-
 <script setup lang="ts">
+/**
+ * Account handover: move one member's projects, Deck content and group
+ * memberships to another.
+ *
+ * Rebuilt on the same expandable rows as the backups tab and the organization
+ * list, replacing a drill-in "Back to list" view that hid the list behind a
+ * third level of navigation — inside a tab, inside an expanded organization.
+ *
+ * Three fixes that are not cosmetic:
+ *   - the real transfer was gated by window.confirm(), which the app forbids;
+ *     it is a ConfirmDialog now, so a failure keeps the dialog open with a
+ *     reason instead of vanishing;
+ *   - every request swallowed its failure into console.error, so a rejected
+ *     handover looked exactly like one that never started;
+ *   - the job list was pinned to the server's first 20 with no way forward.
+ */
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import ConfirmDialog from '../../ConfirmDialog.vue'
+import Pagination from '../../ui/Pagination.vue'
+import IzChevron from '../../ui/IzChevron.vue'
 import IzSelect from '../../ui/IzSelect.vue'
-import IzButton from '../../ui/IzButton.vue'
 import IzSwitch from '../../ui/IzSwitch.vue'
-import IzDateTime from '../../ui/IzDateTime.vue'
-import IzSpinner from '../../ui/IzSpinner.vue'
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import axios from '@nextcloud/axios'
-import { generateOcsUrl } from '@nextcloud/router'
-
-import Play from 'vue-material-design-icons/Play.vue'
-import Refresh from 'vue-material-design-icons/Refresh.vue'
-import History from 'vue-material-design-icons/History.vue'
-import ChevronRight from 'vue-material-design-icons/ChevronRight.vue'
-import ChevronLeft from 'vue-material-design-icons/ChevronLeft.vue'
-import Information from 'vue-material-design-icons/Information.vue'
-import AlertCircle from 'vue-material-design-icons/AlertCircle.vue'
-import Check from 'vue-material-design-icons/Check.vue'
-import Close from 'vue-material-design-icons/Close.vue'
-import CheckCircle from 'vue-material-design-icons/CheckCircle.vue'
-import CloseCircle from 'vue-material-design-icons/CloseCircle.vue'
-import Timer from 'vue-material-design-icons/Timer.vue'
+import JobSteps from '../../jobs/JobSteps.vue'
+import JobEvents from '../../jobs/JobEvents.vue'
+import { ocs } from '../../../lib/api'
+import { formatDateTime } from '../../../lib/format'
+import { isActive, statusLabel, statusTone } from '../../../lib/jobs'
+import type { HandoverJob, JobEvent, Member, Organization } from '../../../types'
 
 const props = defineProps<{
-	organization: any
-	members: any[]
+	org: Organization
+	members: Member[]
 }>()
 
-const loading = ref(false)
-const loadingJobs = ref(false)
-const loadingEvents = ref(false)
-const jobs = ref<any[]>([])
-const events = ref<any[]>([])
-const selectedJob = ref<any>(null)
+const JOBS_PAGE = 20
+const EVENTS_PAGE = 200
+
+const jobs = ref<HandoverJob[]>([])
+const jobsOffset = ref(0)
+const loading = ref(true)
+const listError = ref('')
+
+const busy = ref(false)
+const formError = ref('')
+const confirmTransfer = ref(false)
+
+const openJobId = ref<number | null>(null)
+const job = ref<HandoverJob | null>(null)
+const events = ref<JobEvent[]>([])
+const detailPending = ref(false)
+const detailError = ref('')
+
+const retryingId = ref<number | null>(null)
 
 const form = ref({
 	sourceUserId: '',
@@ -363,206 +60,259 @@ const form = ref({
 	remapDeckContent: true,
 })
 
-const memberOptions = computed(() => {
-	return props.members.map(m => ({
-		id: m.uid,
-		label: `${m.displayName} (${m.uid})`,
-	}))
-})
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
-const isFormValid = computed(() => {
-	return !!(form.value.sourceUserId
-		&& form.value.targetUserId
-		&& form.value.sourceUserId !== form.value.targetUserId)
-})
+const orgId = computed(() => Number(props.org?.id || 0))
+const base = () => `organizations/${orgId.value}/handover`
 
-const fetchJobs = async () => {
-	if (!props.organization) return
-	loadingJobs.value = true
-	try {
-		const response = await axios.get(
-			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs`),
-		)
-		jobs.value = response.data.ocs.data.jobs || []
-	} catch (error) {
-		console.error('Failed to fetch jobs', error)
-	} finally {
-		loadingJobs.value = false
+const memberOptions = computed(() =>
+	props.members.map((m) => ({ id: m.uid, label: `${m.displayName || m.uid} (${m.uid})` })))
+
+const sameMember = computed(() =>
+	!!form.value.sourceUserId && form.value.sourceUserId === form.value.targetUserId)
+
+const canSubmit = computed(() =>
+	!!form.value.sourceUserId && !!form.value.targetUserId && !sameMember.value)
+
+/**
+ * Turn any thrown value into a sentence worth showing.
+ * @param e
+ */
+function describe(e: unknown): string {
+	return e instanceof Error ? e.message : String(e)
+}
+
+/* ── Fetching ───────────────────────────────────────────────────────────── */
+
+/**
+ * Load the current page of backup jobs.
+ */
+async function fetchJobs() {
+	const data = await ocs<{ jobs: HandoverJob[] }>(`${base()}/jobs`, {
+		params: { limit: JOBS_PAGE, offset: jobsOffset.value },
+	})
+	jobs.value = data?.jobs ?? []
+	if (!jobs.value.length && jobsOffset.value > 0) {
+		jobsOffset.value = Math.max(0, jobsOffset.value - JOBS_PAGE)
+		return
 	}
+	if (jobs.value.some((j) => isActive(j.status))) startPolling()
+	else stopPolling()
 }
 
-const fetchJob = async (jobId: number) => {
-	const response = await axios.get(
-		generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}`),
-	)
-	return response.data.ocs.data
-}
-
-const fetchEvents = async (jobId: number) => {
-	loadingEvents.value = true
-	try {
-		const response = await axios.get(
-			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}/events`),
-		)
-		events.value = response.data.ocs.data.events || []
-	} catch (error) {
-		console.error('Failed to fetch events', error)
-	} finally {
-		loadingEvents.value = false
-	}
-}
-
-const startHandover = async (dryRun: boolean) => {
-	if (!isFormValid.value || !props.organization) return
-
+/**
+ * Load the current page of handover jobs, surfacing any failure.
+ */
+async function load() {
 	loading.value = true
-	const idempotencyKey = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
-
+	listError.value = ''
 	try {
-		const response = await axios.post(
-			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover`),
-			{
+		await fetchJobs()
+	} catch (e) {
+		listError.value = describe(e)
+	} finally {
+		loading.value = false
+	}
+}
+
+/**
+ * The single-job endpoint answers the job bare at ocs.data, not wrapped in
+ * `{job: …}` the way the backup endpoints do. Steps only come back from here.
+ * @param jobId
+ */
+async function loadDetail(jobId: number) {
+	detailPending.value = true
+	detailError.value = ''
+	try {
+		const [detail, log] = await Promise.all([
+			ocs<HandoverJob>(`${base()}/jobs/${jobId}`),
+			ocs<{ events: JobEvent[] }>(`${base()}/jobs/${jobId}/events`, {
+				params: { limit: EVENTS_PAGE, offset: 0 },
+			}),
+		])
+		job.value = detail ?? null
+		events.value = log?.events ?? []
+	} catch (e) {
+		detailError.value = describe(e)
+	} finally {
+		detailPending.value = false
+	}
+}
+
+/* ── Polling ────────────────────────────────────────────────────────────── */
+
+/**
+ * False while the tab is in the background, so a tick can be skipped.
+ */
+function pollable(): boolean {
+	return typeof document === 'undefined' || document.visibilityState === 'visible'
+}
+
+/**
+ * Refresh every 3s while a job is queued or running. Idempotent.
+ *
+ * A real transfer is queued and picked up by a background job on a 60s timer,
+ * so it can sit in `queued` for a while before anything moves — the poll has
+ * to outlast that, not give up after a few ticks.
+ */
+function startPolling() {
+	if (pollTimer) return
+	pollTimer = setInterval(async () => {
+		if (!pollable()) return
+		try {
+			await fetchJobs()
+			if (openJobId.value !== null) await loadDetail(openJobId.value)
+		} catch {
+			stopPolling()
+		}
+	}, 3000)
+}
+
+/**
+ * Cancel the poll.
+ */
+function stopPolling() {
+	if (pollTimer) {
+		clearInterval(pollTimer)
+		pollTimer = null
+	}
+}
+
+/**
+ * Catch up immediately when the tab comes back to the foreground.
+ */
+function onVisibility() {
+	if (pollable() && pollTimer) fetchJobs().catch(() => stopPolling())
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────── */
+
+/**
+ * Create a handover job, as a dry run or for real, and open it.
+ * @param dryRun
+ */
+async function start(dryRun: boolean) {
+	if (!canSubmit.value) return
+	busy.value = true
+	formError.value = ''
+	try {
+		const created = await ocs<HandoverJob>(base(), {
+			method: 'POST',
+			body: {
 				sourceUserId: form.value.sourceUserId,
 				targetUserId: form.value.targetUserId,
 				dryRun,
 				removeSourceFromGroups: form.value.removeSourceFromGroups,
 				remapDeckContent: form.value.remapDeckContent,
 			},
-			{
-				headers: {
-					'Idempotency-Key': idempotencyKey,
-				},
+			// Replaying the same request must not start a second transfer.
+			headers: {
+				'Idempotency-Key': globalThis.crypto?.randomUUID?.()
+					?? `${orgId.value}-${form.value.sourceUserId}-${form.value.targetUserId}-${performance.now()}`,
 			},
-		)
-
+		})
+		jobsOffset.value = 0
 		await fetchJobs()
-
-		const job = response.data.ocs.data
-		if (job?.jobId) {
-			await viewJobDetails(job)
+		if (created?.jobId) {
+			openJobId.value = created.jobId
+			await loadDetail(created.jobId)
+			if (isActive(created.status)) startPolling()
 		}
-	} catch (error: any) {
-		console.error('Failed to start handover', error)
+		confirmTransfer.value = false
+	} catch (e) {
+		formError.value = describe(e)
 	} finally {
-		loading.value = false
-	}
-}
-
-const runDryRun = async () => {
-	await startHandover(true)
-}
-
-const startTransfer = async () => {
-	if (!props.organization || !isFormValid.value) return
-	const ok = window.confirm('Start the real transfer? This will modify ownership and memberships.')
-	if (!ok) return
-	await startHandover(false)
-}
-
-const retryJob = async (job: any) => {
-	loading.value = true
-	try {
-		const response = await axios.post(
-			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${job.jobId}/retry`),
-		)
-		await fetchJobs()
-		if (selectedJob.value?.jobId === job.jobId) {
-			selectedJob.value = response.data.ocs.data
-		}
-	} catch (error) {
-		console.error('Failed to retry job', error)
-	} finally {
-		loading.value = false
-	}
-}
-
-const viewJobDetails = async (job: any) => {
-	const jobId: number = job?.jobId ?? job
-	const base = job && typeof job === 'object' ? job : {}
-	selectedJob.value = {
-		...base,
-		jobId,
-		steps: base?.steps ?? [],
-	}
-	events.value = []
-	await fetchEvents(jobId)
-
-	// If job is still running, poll for updates
-	try {
-		selectedJob.value = await fetchJob(jobId)
-	} catch (error) {
-		console.error('Failed to fetch job details', error)
-	}
-
-	if (selectedJob.value?.status === 'queued' || selectedJob.value?.status === 'running') {
-		startPolling(jobId)
-	}
-}
-
-let pollingInterval: ReturnType<typeof setInterval> | null = null
-const startPolling = (jobId: number) => {
-	if (pollingInterval) clearInterval(pollingInterval)
-	pollingInterval = setInterval(async () => {
-		if (!selectedJob.value || selectedJob.value.jobId !== jobId) {
-			stopPolling()
-			return
-		}
-
-		try {
-			const response = await axios.get(
-				generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}`),
-			)
-			selectedJob.value = response.data.ocs.data
-			await fetchEvents(jobId)
-
-			if (selectedJob.value.status !== 'queued' && selectedJob.value.status !== 'running') {
-				stopPolling()
-				fetchJobs() // Update the main list
-			}
-		} catch (error) {
-			console.error('Polling failed', error)
-			stopPolling()
-		}
-	}, 3000)
-}
-
-const stopPolling = () => {
-	if (pollingInterval) {
-		clearInterval(pollingInterval)
-		pollingInterval = null
+		busy.value = false
 	}
 }
 
 /**
- * Explicit table, neutral fallback. The previous :class="['status-badge',
- * job.status]" built a class name from data, so any status without a
- * matching rule rendered unstyled.
+ * Retries only the failed steps — the server's default for this endpoint.
+ * @param row
  */
-const STATUS_TONE: Record<string, string> = {
-	queued: 'iz-pill--muted',
-	running: 'iz-pill--accent',
-	completed: 'iz-pill--success',
-	failed: 'iz-pill--danger',
-	skipped: 'iz-pill--muted',
-}
-
-const statusTone = (status: string): string => STATUS_TONE[status] ?? 'iz-pill--muted'
-
-const formatStepName = (key: string) => {
-	const names: Record<string, string> = {
-		projectcreator: 'Project Creator Ownership Transfer',
-		deck: 'Deck Boards & Cards Remapping',
-		finalize: 'Finalization & Cleanup',
+async function retry(row: HandoverJob) {
+	retryingId.value = row.jobId
+	formError.value = ''
+	try {
+		const updated = await ocs<HandoverJob>(`${base()}/jobs/${row.jobId}/retry`, { method: 'POST' })
+		await fetchJobs()
+		if (openJobId.value === row.jobId) {
+			job.value = updated ?? job.value
+			await loadDetail(row.jobId)
+		}
+		if (updated && isActive(updated.status)) startPolling()
+	} catch (e) {
+		formError.value = describe(e)
+	} finally {
+		retryingId.value = null
 	}
-	return names[key] || key
 }
 
-const formatTime = (dateStr: string) => {
-	const date = new Date(dateStr)
-	return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+/**
+ * Expand or collapse a handover job, loading its detail on open.
+ * @param row
+ */
+async function toggle(row: HandoverJob) {
+	if (openJobId.value === row.jobId) {
+		openJobId.value = null
+		job.value = null
+		events.value = []
+		return
+	}
+	openJobId.value = row.jobId
+	job.value = null
+	events.value = []
+	await loadDetail(row.jobId)
 }
 
-const formatJson = (value: any) => {
+/* ── Dry-run preview ────────────────────────────────────────────────────── */
+
+/**
+ * Read one key off an unknown value without asserting its shape.
+ * @param value
+ * @param key
+ */
+function pick(value: unknown, key: string): unknown {
+	return value && typeof value === 'object' && !Array.isArray(value)
+		? (value as Record<string, unknown>)[key]
+		: undefined
+}
+
+/**
+ * The whole point of a dry run, and it was only ever reachable by opening a
+ * raw JSON dump under the finalize step.
+ */
+const preview = computed<Record<string, unknown> | null>(() => {
+	const found = pick(pick(job.value?.result, 'finalize'), 'dryRunPreview')
+	return found && typeof found === 'object' && !Array.isArray(found)
+		? found as Record<string, unknown>
+		: null
+})
+
+const previewFacts = computed(() =>
+	Object.entries(preview.value ?? {})
+		.filter(([key, value]) => key !== 'warnings' && key !== 'mode'
+			&& (typeof value === 'number' || typeof value === 'string')))
+
+const previewWarnings = computed(() => {
+	const found = preview.value?.warnings
+	return Array.isArray(found) ? found.filter((v): v is string => typeof v === 'string') : []
+})
+
+/**
+ * Turn an API key such as `deckBoards` into "Deck boards".
+ * @param key
+ */
+function humanKey(key: string): string {
+	const spaced = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim()
+	return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+/**
+ * Pretty-print the job result for the raw disclosure.
+ * @param value
+ */
+function rawResult(value: unknown): string {
 	try {
 		return JSON.stringify(value, null, 2)
 	} catch {
@@ -570,432 +320,511 @@ const formatJson = (value: any) => {
 	}
 }
 
-const formatPayloadSummary = (payload: any) => {
-	if (!payload || typeof payload !== 'object') return ''
-	const parts: string[] = []
-	if (payload.status) parts.push(`status=${payload.status}`)
-	if (payload.service) parts.push(`service=${payload.service}`)
-	if (payload.organizationId) parts.push(`org=${payload.organizationId}`)
-	if (payload.sourceUserId) parts.push(`from=${payload.sourceUserId}`)
-	if (payload.targetUserId) parts.push(`to=${payload.targetUserId}`)
-	return parts.filter(Boolean).join(' ')
-}
+/* ── Lifecycle ──────────────────────────────────────────────────────────── */
 
 onMounted(() => {
-	fetchJobs()
+	load()
+	document.addEventListener('visibilitychange', onVisibility)
 })
 
 onBeforeUnmount(() => {
 	stopPolling()
+	document.removeEventListener('visibilitychange', onVisibility)
 })
 
-watch(() => props.organization?.id, () => {
-	fetchJobs()
-	selectedJob.value = null
+watch(orgId, (next, prev) => {
+	if (next === prev) return
+	stopPolling()
+	openJobId.value = null
+	job.value = null
+	events.value = []
+	jobsOffset.value = 0
+	form.value = {
+		sourceUserId: '',
+		targetUserId: '',
+		removeSourceFromGroups: false,
+		remapDeckContent: true,
+	}
+	load()
+})
+
+watch(jobsOffset, async () => {
+	openJobId.value = null
+	job.value = null
+	events.value = []
+	try {
+		await fetchJobs()
+	} catch (e) {
+		listError.value = describe(e)
+	}
 })
 </script>
 
+<template>
+	<div class="handover">
+		<!-- ── Start a handover ─────────────────────────────────────────── -->
+		<section class="iz-panel iz-panel--flush">
+			<header class="iz-panel__header">
+				<h4 class="iz-panel__title">
+					Start a handover
+				</h4>
+			</header>
+
+			<div class="iz-card handover__form">
+				<p class="handover__note">
+					Transfers ownership of projects, Deck boards and other content from one member to
+					another. Run a preview first — it reports exactly what would move without moving
+					anything.
+				</p>
+
+				<div class="handover__grid">
+					<div class="handover__field">
+						<label class="iz-label" for="handover-source">Source member</label>
+						<IzSelect id="handover-source"
+							v-model="form.sourceUserId"
+							input-id="handover-source"
+							aria-label="Source member"
+							:options="memberOptions"
+							placeholder="Select source member"
+							:disabled="busy" />
+					</div>
+
+					<div class="handover__field">
+						<label class="iz-label" for="handover-target">Target member</label>
+						<IzSelect id="handover-target"
+							v-model="form.targetUserId"
+							input-id="handover-target"
+							aria-label="Target member"
+							:options="memberOptions"
+							placeholder="Select target member"
+							:disabled="busy" />
+					</div>
+				</div>
+
+				<div class="iz-inset handover__options">
+					<IzSwitch v-model="form.removeSourceFromGroups" :disabled="busy">
+						Remove the source member from project groups
+					</IzSwitch>
+					<IzSwitch v-model="form.remapDeckContent" :disabled="busy">
+						Remap Deck content (boards and cards)
+					</IzSwitch>
+				</div>
+
+				<p v-if="sameMember" class="iz-state">
+					The source and target must be different members.
+				</p>
+
+				<div v-if="formError" class="iz-error" role="alert">
+					{{ formError }}
+				</div>
+
+				<div class="handover__actions">
+					<button class="iz-btn iz-btn--sm"
+						type="button"
+						:disabled="!canSubmit || busy"
+						@click="start(true)">
+						<span v-if="busy" class="iz-spinner" />
+						Preview (dry run)
+					</button>
+					<button class="iz-btn iz-btn--primary iz-btn--sm"
+						type="button"
+						:disabled="!canSubmit || busy"
+						@click="confirmTransfer = true">
+						Start transfer
+					</button>
+				</div>
+			</div>
+		</section>
+
+		<!-- ── Jobs ─────────────────────────────────────────────────────── -->
+		<section class="iz-panel iz-panel--flush">
+			<header class="iz-panel__header">
+				<h4 class="iz-panel__title">
+					Handover jobs
+					<span v-if="jobs.length" class="iz-badge iz-badge--muted">{{ jobs.length }}</span>
+				</h4>
+				<button class="iz-btn iz-btn--sm"
+					type="button"
+					:disabled="loading"
+					@click="load">
+					<span v-if="loading" class="iz-spinner" />
+					Refresh
+				</button>
+			</header>
+
+			<div v-if="listError" class="iz-error handover__alert" role="alert">
+				{{ listError }}
+				<button class="iz-btn iz-btn--accent iz-btn--sm" type="button" @click="load">
+					Try again
+				</button>
+			</div>
+
+			<p v-if="loading && !jobs.length" class="iz-state">
+				Loading handover jobs…
+			</p>
+
+			<div v-else-if="!jobs.length" class="iz-empty">
+				No handover jobs yet.
+			</div>
+
+			<template v-else>
+				<div class="handover__rows">
+					<article v-for="row in jobs"
+						:key="row.jobId"
+						class="iz-row iz-row--card iz-row--expandable"
+						:class="{ 'iz-row--expanded': openJobId === row.jobId }">
+						<div class="iz-row__header"
+							role="button"
+							tabindex="0"
+							:aria-expanded="openJobId === row.jobId"
+							@click="toggle(row)"
+							@keydown.enter.prevent="toggle(row)"
+							@keydown.space.prevent="toggle(row)">
+							<div class="handover__ident">
+								<span class="handover__transfer">
+									<span class="handover__uid">{{ row.sourceUserId }}</span>
+									<span aria-label="to">→</span>
+									<span class="handover__uid">{{ row.targetUserId }}</span>
+								</span>
+								<span class="handover__meta">
+									Job #{{ row.jobId }} · {{ formatDateTime(row.createdAt) }} · by {{ row.requestedByUserId }}
+								</span>
+							</div>
+
+							<div class="iz-row__actions">
+								<span class="iz-badge" :class="row.dryRun ? 'iz-badge--warning' : 'iz-badge--accent'">
+									{{ row.dryRun ? 'Dry run' : 'Real transfer' }}
+								</span>
+								<span class="iz-pill" :class="statusTone(row.status)">
+									<span class="iz-dot" aria-hidden="true" />{{ statusLabel(row.status) }}
+								</span>
+								<button v-if="row.status === 'failed'"
+									class="iz-btn iz-btn--sm"
+									type="button"
+									:disabled="retryingId === row.jobId"
+									title="Re-run only the steps that failed"
+									@click.stop="retry(row)">
+									<span v-if="retryingId === row.jobId" class="iz-spinner" />
+									Retry failed steps
+								</button>
+								<IzChevron :open="openJobId === row.jobId" />
+							</div>
+						</div>
+
+						<div v-if="openJobId === row.jobId" class="iz-row__detail handover__detail">
+							<p v-if="detailPending && !job" class="iz-state">
+								Loading job detail…
+							</p>
+							<div v-if="detailError" class="iz-error" role="alert">
+								{{ detailError }}
+							</div>
+
+							<template v-if="job">
+								<div v-if="job.errorMessage" class="iz-error" role="alert">
+									{{ job.errorMessage }}
+								</div>
+
+								<div v-if="preview" class="iz-inset handover__preview">
+									<span class="iz-section-title">Preview — nothing was changed</span>
+									<div v-if="previewFacts.length" class="handover__chips">
+										<span v-for="[key, value] in previewFacts" :key="key" class="iz-badge iz-badge--muted">
+											{{ humanKey(key) }}: {{ value }}
+										</span>
+									</div>
+									<ul v-if="previewWarnings.length" class="handover__bullets">
+										<li v-for="(text, i) in previewWarnings" :key="i">
+											{{ text }}
+										</li>
+									</ul>
+								</div>
+
+								<dl class="handover__kv">
+									<div class="handover__kv-item">
+										<dt class="iz-label">
+											Source
+										</dt>
+										<dd class="handover__kv-value handover__mono">
+											{{ job.sourceUserId }}
+										</dd>
+									</div>
+									<div class="handover__kv-item">
+										<dt class="iz-label">
+											Target
+										</dt>
+										<dd class="handover__kv-value handover__mono">
+											{{ job.targetUserId }}
+										</dd>
+									</div>
+									<div class="handover__kv-item">
+										<dt class="iz-label">
+											Requested by
+										</dt>
+										<dd class="handover__kv-value">
+											{{ job.requestedByUserId }}
+										</dd>
+									</div>
+									<div class="handover__kv-item">
+										<dt class="iz-label">
+											Attempt
+										</dt>
+										<dd class="handover__kv-value">
+											{{ job.attempt }}
+										</dd>
+									</div>
+									<div class="handover__kv-item">
+										<dt class="iz-label">
+											Created
+										</dt>
+										<dd class="handover__kv-value">
+											{{ formatDateTime(job.createdAt) }}
+										</dd>
+									</div>
+									<div class="handover__kv-item">
+										<dt class="iz-label">
+											Started
+										</dt>
+										<dd class="handover__kv-value">
+											{{ formatDateTime(job.startedAt) }}
+										</dd>
+									</div>
+									<div class="handover__kv-item">
+										<dt class="iz-label">
+											Finished
+										</dt>
+										<dd class="handover__kv-value">
+											{{ formatDateTime(job.finishedAt) }}
+										</dd>
+									</div>
+								</dl>
+
+								<section class="handover__section">
+									<span class="iz-section-title">Configuration</span>
+									<div class="handover__chips">
+										<span class="iz-badge" :class="job.dryRun ? 'iz-badge--warning' : 'iz-badge--accent'">
+											{{ job.dryRun ? 'Dry run' : 'Real transfer' }}
+										</span>
+										<span class="iz-badge"
+											:class="job.removeSourceFromGroups ? 'iz-badge--success' : 'iz-badge--muted'">
+											{{ job.removeSourceFromGroups ? 'Removes source from groups' : 'Keeps source in groups' }}
+										</span>
+										<span class="iz-badge" :class="job.remapDeckContent ? 'iz-badge--success' : 'iz-badge--muted'">
+											{{ job.remapDeckContent ? 'Remaps Deck content' : 'Leaves Deck content' }}
+										</span>
+									</div>
+								</section>
+
+								<section v-if="job.steps.length" class="handover__section">
+									<span class="iz-section-title">Steps</span>
+									<JobSteps :steps="job.steps" />
+								</section>
+
+								<section class="handover__section">
+									<span class="iz-section-title">
+										Activity log
+										<span v-if="events.length" class="iz-badge iz-badge--muted">{{ events.length }}</span>
+									</span>
+									<JobEvents :events="events" :loading="detailPending" show-step />
+								</section>
+
+								<details v-if="job.result" class="handover__raw">
+									<summary>Raw result</summary>
+									<pre>{{ rawResult(job.result) }}</pre>
+								</details>
+							</template>
+						</div>
+					</article>
+				</div>
+
+				<Pagination v-model:offset="jobsOffset"
+					:limit="JOBS_PAGE"
+					:count="jobs.length"
+					label="handover jobs" />
+			</template>
+		</section>
+
+		<!-- Replaces window.confirm(), which the app forbids: a native confirm
+		     cannot show why the request failed, and dismissed itself either way. -->
+		<ConfirmDialog v-if="confirmTransfer"
+			title="Start the real transfer?"
+			:message="`Ownership of ${form.sourceUserId}'s projects and Deck content moves to ${form.targetUserId}. This runs for real and is not reversible from here. Run a dry run first if you have not.`"
+			confirm-label="Start transfer"
+			busy-label="Starting…"
+			danger
+			:busy="busy"
+			:error="formError"
+			@confirm="start(false)"
+			@cancel="confirmTransfer = false; formError = ''" />
+	</div>
+</template>
+
 <style scoped>
-.account-handover {
+/* Layout only. Surfaces, borders, radii, type sizes, pills, badges, insets,
+   errors and the row shell all come from .iz-* primitives. */
+.handover {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--iz-gap);
 }
 
-.section {
-	background-color: var(--iz-surface);
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius-lg);
-	padding: 20px;
-}
-
-.section h3 {
-	margin: 0 0 8px 0;
-	font-size: var(--iz-fs-lg);
-	font-weight: 600;
-}
-
-.section-description {
-	color: var(--iz-text-secondary);
-	font-size: var(--iz-fs-lg);
-	margin-bottom: 20px;
-}
-
-.form-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 20px;
-	margin-bottom: 20px;
-}
-
-.form-group {
+.handover__form {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--iz-gap);
 }
 
-.form-group label {
+.handover__note {
+	margin: 0;
 	font-size: var(--iz-fs-md);
-	font-weight: 600;
 	color: var(--iz-text-secondary);
+	line-height: 1.45;
 }
 
-.options-grid {
+.handover__grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: var(--iz-gap);
+}
+
+.handover__field {
+	min-width: 0;
+}
+
+.handover__options {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
-	margin-bottom: 24px;
-	padding: 16px;
-	background-color: var(--iz-surface-inset);
-	border-radius: var(--iz-radius);
+	gap: 10px;
 }
 
-.form-actions {
+.handover__actions {
 	display: flex;
 	justify-content: flex-end;
-	gap: 12px;
+	gap: 8px;
 	flex-wrap: wrap;
 }
 
-/* History Section */
-.section-header {
+.handover__alert {
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 16px;
-}
-
-.loading-state, .empty-state {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	padding: 40px;
-	color: var(--iz-text-secondary);
-	text-align: center;
 	gap: 12px;
+	flex-wrap: wrap;
+	margin-bottom: var(--iz-gap);
 }
 
-.jobs-list {
-	overflow-x: auto;
-}
-
-.jobs-table {
-	width: 100%;
-	border-collapse: collapse;
-}
-
-.jobs-table th {
-	text-align: left;
-	padding: 12px;
-	border-bottom: 2px solid var(--iz-border);
-	font-size: var(--iz-fs-md);
-	font-weight: 600;
-	color: var(--iz-text-secondary);
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-}
-
-.jobs-table td {
-	padding: 12px;
-	border-bottom: 1px solid var(--iz-border);
-	font-size: var(--iz-fs-lg);
-}
-
-.job-row {
-	cursor: pointer;
-	transition: background-color 0.2s;
-}
-
-.job-row:hover {
-	background-color: var(--iz-surface-subtle);
-}
-
-.transfer-info {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.uid {
-	font-family: monospace;
-	font-size: var(--iz-fs-md);
-	background-color: var(--iz-surface-inset);
-	padding: 2px 6px;
-	border-radius: var(--iz-radius-sm);
-}
-
-.type-tag {
-	font-size: var(--iz-fs-sm);
-	font-weight: 600;
-	padding: 2px 6px;
-	border-radius: var(--iz-radius-sm);
-}
-
-.type-tag.dry-run { background-color: var(--iz-warning-bg); color: var(--iz-warning); }
-.type-tag.real { background-color: var(--iz-accent-bg); color: var(--iz-accent); }
-
-.actions-cell {
-	display: flex;
-	gap: 4px;
-}
-
-.spinning {
-	animation: spin 2s linear infinite;
-}
-
-@keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
-}
-
-/* Job Details */
-.job-details {
+.handover__rows {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
-}
-
-.details-header {
-	display: flex;
-	align-items: center;
-	gap: 16px;
-	padding-bottom: 16px;
-	border-bottom: 1px solid var(--iz-border);
-}
-
-.details-header h2 {
-	margin: 0;
-	flex: 1;
-}
-
-.details-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 20px;
-}
-
-.details-card {
-	background-color: var(--iz-surface);
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius-lg);
-	padding: 20px;
-}
-
-.details-card h3 {
-	margin: 0 0 16px 0;
-	font-size: var(--iz-fs-lg);
-	font-weight: 600;
-	color: var(--iz-text-secondary);
-}
-
-.summary-info {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-.info-item {
-	display: flex;
-	justify-content: space-between;
-	font-size: var(--iz-fs-lg);
-}
-
-.info-item .label {
-	color: var(--iz-text-secondary);
-}
-
-.info-item .value {
-	font-weight: 600;
-}
-
-.error-banner {
-	margin-top: 20px;
-	padding: 16px;
-	background-color: var(--iz-danger-bg);
-	border-radius: var(--iz-radius);
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-.error-content {
-	font-size: var(--iz-fs-lg);
-}
-
-.error-content p {
-	margin: 4px 0 0 0;
-}
-
-.options-list {
-	list-style: none;
-	padding: 0;
-	margin: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-.options-list li {
-	display: flex;
-	align-items: center;
 	gap: 10px;
-	font-size: var(--iz-fs-lg);
-	color: var(--iz-text-secondary);
 }
 
-.options-list li.enabled {
-	color: var(--iz-text);
-	font-weight: 500;
-}
-
-.steps-list {
+.handover__ident {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
-}
-
-.step-item {
-	display: flex;
-	gap: 12px;
-}
-
-.step-icon {
-	flex-shrink: 0;
-	margin-top: 2px;
-}
-
-.step-icon .success { color: var(--iz-success); }
-.step-icon .error { color: var(--iz-danger); }
-.step-icon .skipped { color: var(--iz-text-secondary); }
-.step-icon .pending { color: var(--iz-text-secondary); }
-
-.step-info {
+	gap: 1px;
+	min-width: 0;
 	flex: 1;
 }
 
-.step-name {
-	font-weight: 600;
-	font-size: var(--iz-fs-lg);
-}
-
-.step-meta {
-	font-size: var(--iz-fs-md);
-	color: var(--iz-text-secondary);
-	text-transform: capitalize;
-}
-
-.step-error {
-	margin-top: 4px;
-	font-size: var(--iz-fs-md);
-	color: var(--iz-danger);
-	background-color: var(--iz-danger-bg);
-	padding: 4px 8px;
-	border-radius: var(--iz-radius-sm);
-}
-
-.step-warning {
-	margin-top: 4px;
-	font-size: var(--iz-fs-md);
-	color: var(--iz-text-secondary);
-	background-color: var(--iz-surface-inset);
-	padding: 4px 8px;
-	border-radius: var(--iz-radius-sm);
-}
-
-.step-details {
-	margin-top: 8px;
-}
-
-.step-details summary {
-	cursor: pointer;
-	color: var(--iz-accent);
-}
-
-.step-details pre {
-	margin: 8px 0 0 0;
-	padding: 8px;
-	background-color: var(--iz-surface-inset);
-	border-radius: var(--iz-radius-sm);
-	overflow-x: auto;
-}
-
-.events {
-	grid-column: span 2;
-}
-
-.card-header {
+.handover__transfer {
 	display: flex;
-	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 16px;
+	gap: 6px;
+	font-size: var(--iz-fs-md);
+	font-weight: 600;
+	min-width: 0;
 }
 
-.events-stream {
-	max-height: 300px;
-	overflow-y: auto;
-	background-color: var(--iz-surface-inset);
-	border-radius: var(--iz-radius);
-	padding: 12px;
+.handover__uid {
+	font-family: var(--iz-font-mono);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.handover__meta {
+	font-size: var(--iz-fs-xs);
+	color: var(--iz-text-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.handover__detail {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-	font-family: monospace;
-	font-size: var(--iz-fs-md);
+	gap: var(--iz-gap);
 }
 
-.event-item {
-	display: flex;
+/* Stacked label-over-value pairs. The theme has no key-value primitive — the
+   chrome is .iz-label and only the tracks are local. */
+.handover__kv {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 	gap: 12px;
-	padding: 4px 8px;
-	border-radius: var(--iz-radius-sm);
-}
-
-.event-item.info { color: var(--iz-text-secondary); }
-.event-item.warning { background-color: var(--iz-warning-bg); color: var(--iz-warning-text); }
-.event-item.error { background-color: var(--iz-danger-bg); color: var(--iz-danger-text); }
-
-.event-time {
-	flex-shrink: 0;
-	opacity: 0.7;
-}
-
-.event-payload {
-	margin-top: 4px;
-	padding: 8px;
-	background-color: var(--iz-surface-inset);
-	border-radius: var(--iz-radius-sm);
-	overflow-x: auto;
-}
-
-.event-meta {
-	opacity: 0.8;
-}
-
-.event-summary {
-	opacity: 0.9;
-}
-
-.event-details summary {
-	cursor: pointer;
-	color: var(--iz-accent);
-}
-
-.event-payload pre {
 	margin: 0;
 }
 
-@media (max-width: 800px) {
-	.form-grid {
-		grid-template-columns: 1fr;
-	}
+.handover__kv-item {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
 
-	.details-grid {
-		grid-template-columns: 1fr;
-	}
+/* .iz-label carries a 6px margin meant for a form field. Qualified on the
+   parent to reach (0,3,0): this app's stylesheet loads BEFORE the theme, so a
+   bare class would tie at (0,2,0) and lose. */
+.handover__kv .iz-label {
+	margin-bottom: 2px;
+}
 
-	.events {
-		grid-column: span 1;
-	}
+.handover__kv-value {
+	margin: 0;
+	font-size: var(--iz-fs-md);
+	overflow-wrap: anywhere;
+}
+
+.handover__mono {
+	font-family: var(--iz-font-mono);
+	font-size: var(--iz-fs-sm);
+}
+
+.handover__section {
+	display: flex;
+	flex-direction: column;
+}
+
+.handover__chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.handover__preview {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.handover__bullets {
+	margin: 0;
+	padding-left: 18px;
+	font-size: var(--iz-fs-md);
+	color: var(--iz-text-secondary);
+}
+
+.handover__raw summary {
+	font-size: var(--iz-fs-sm);
+	color: var(--iz-text-secondary);
+	cursor: pointer;
+}
+
+.handover__raw pre {
+	margin: 8px 0 0;
+	padding: 10px 12px;
+	max-height: 240px;
+	overflow: auto;
+	font-family: var(--iz-font-mono);
+	font-size: var(--iz-fs-sm);
+	background: var(--iz-surface-inset);
+	border-radius: var(--iz-radius-sm);
 }
 </style>

@@ -330,7 +330,7 @@ async function createAccount() {
 }
 
 .members__mono {
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--iz-font-mono);
 }
 
 /* Each row is its own .iz-row--card now, so the list is a plain stack.

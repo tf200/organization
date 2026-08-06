@@ -61,38 +61,48 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
 
 <template>
 	<div class="iz-modal-backdrop" @click.self="cancel">
-		<div class="iz-modal confirm-dialog" role="dialog" aria-modal="true" :aria-label="title">
+		<div class="iz-modal confirm-dialog"
+			role="dialog"
+			aria-modal="true"
+			:aria-label="title">
 			<div class="iz-modal__header">
-				<h4 class="iz-panel__title">{{ title }}</h4>
-				<button
-					class="iz-close iz-close--sm"
+				<h4 class="iz-panel__title">
+					{{ title }}
+				</h4>
+				<button class="iz-close iz-close--sm"
 					type="button"
 					:disabled="busy"
 					aria-label="Close"
-					@click="cancel">&times;</button>
+					@click="cancel">
+					&times;
+				</button>
 			</div>
 
 			<div class="iz-modal__body">
-				<p v-if="message" class="iz-modal__confirm-text">{{ message }}</p>
+				<p v-if="message" class="iz-modal__confirm-text">
+					{{ message }}
+				</p>
 				<slot />
-				<div v-if="error" class="iz-error" role="alert">{{ error }}</div>
+				<div v-if="error" class="iz-error" role="alert">
+					{{ error }}
+				</div>
 			</div>
 
 			<div class="iz-modal__footer">
-				<button
-					v-if="!alertOnly"
+				<button v-if="!alertOnly"
 					class="iz-btn"
 					type="button"
 					:disabled="busy"
-					@click="cancel">{{ cancelLabel }}</button>
-				<button
-					ref="confirmButton"
+					@click="cancel">
+					{{ cancelLabel }}
+				</button>
+				<button ref="confirmButton"
 					class="iz-btn"
 					:class="danger ? 'iz-btn--danger' : 'iz-btn--primary'"
 					type="button"
 					:disabled="busy"
 					@click="emit('confirm')">
-					<span v-if="busy" class="iz-spinner" aria-hidden="true"></span>
+					<span v-if="busy" class="iz-spinner" aria-hidden="true" />
 					{{ busy ? busyLabel : confirmLabel }}
 				</button>
 			</div>

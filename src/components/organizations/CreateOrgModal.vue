@@ -1,6 +1,5 @@
 <template>
-	<NcModal
-		v-if="show"
+	<IzModal v-if="show"
 		title="Create New Organization"
 		size="large"
 		class="create-org-modal"
@@ -16,8 +15,7 @@
 							<h3>Organization Details</h3>
 						</div>
 						<div class="section-body">
-							<NcTextField
-								v-model="newOrg.displayname"
+							<IzTextField v-model="newOrg.displayname"
 								label="Organization Name"
 								:error="!!errors.displayname"
 								:helper-text="errors.displayname"
@@ -33,28 +31,24 @@
 							<h3>Contact Information</h3>
 						</div>
 						<div class="section-body grid-2-tight">
-							<NcTextField
-								v-model="newOrg.contactFirstName"
+							<IzTextField v-model="newOrg.contactFirstName"
 								label="First Name" />
-							<NcTextField
-								v-model="newOrg.contactLastName"
+							<IzTextField v-model="newOrg.contactLastName"
 								label="Last Name" />
-							<NcTextField
-								v-model="newOrg.contactEmail"
+							<IzTextField v-model="newOrg.contactEmail"
 								label="Email"
 								type="email">
 								<template #leading-icon>
 									<Email :size="16" />
 								</template>
-							</NcTextField>
-							<NcTextField
-								v-model="newOrg.contactPhone"
+							</IzTextField>
+							<IzTextField v-model="newOrg.contactPhone"
 								label="Phone"
 								type="tel">
 								<template #leading-icon>
 									<Phone :size="16" />
 								</template>
-							</NcTextField>
+							</IzTextField>
 						</div>
 					</div>
 
@@ -65,21 +59,17 @@
 							<h3>Organization Admin</h3>
 						</div>
 						<div class="section-body grid-2-tight">
-							<NcTextField
-								v-model="newOrg.adminUserId"
+							<IzTextField v-model="newOrg.adminUserId"
 								label="Admin User ID"
 								:error="!!errors.adminUserId"
 								:helper-text="errors.adminUserId"
 								required />
-							<NcTextField
-								v-model="newOrg.adminDisplayName"
+							<IzTextField v-model="newOrg.adminDisplayName"
 								label="Admin Display Name" />
-							<NcTextField
-								v-model="newOrg.adminEmail"
+							<IzTextField v-model="newOrg.adminEmail"
 								label="Admin Email"
 								type="email" />
-							<NcTextField
-								v-model="newOrg.adminPassword"
+							<IzTextField v-model="newOrg.adminPassword"
 								label="Admin Password"
 								type="password"
 								:error="!!errors.adminPassword"
@@ -100,7 +90,7 @@
 						<div class="section-body">
 							<div class="trial-checkbox-row">
 								<label class="trial-checkbox-label">
-									<input type="checkbox" :checked="newOrg.isTrial" @change="onTrialToggle" />
+									<input type="checkbox" :checked="newOrg.isTrial" @change="onTrialToggle">
 									<span>Create as Trial Organization</span>
 								</label>
 								<div v-if="newOrg.isTrial" class="trial-summary">
@@ -113,7 +103,9 @@
 									<label class="nc-label-text">Subscription Plan</label>
 									<div class="select-wrapper">
 										<select v-model="newOrg.planId" class="nc-select-native" @change="onPlanChange">
-											<option :value="null">Custom Plan</option>
+											<option :value="null">
+												Custom Plan
+											</option>
 											<option v-for="plan in plans" :key="plan.id" :value="plan.id">
 												{{ plan.name }}
 											</option>
@@ -124,8 +116,12 @@
 									<label class="nc-label-text">Validity Period</label>
 									<div class="select-wrapper">
 										<select v-model="newOrg.validity" class="nc-select-native">
-											<option value="1 month">1 Month</option>
-											<option value="1 year">1 Year</option>
+											<option value="1 month">
+												1 Month
+											</option>
+											<option value="1 year">
+												1 Year
+											</option>
 										</select>
 									</div>
 								</div>
@@ -140,21 +136,17 @@
 							<h3>Resource Allocation</h3>
 						</div>
 						<div class="section-body grid-2-tight">
-							<NcTextField
-								v-model.number="newOrg.memberLimit"
+							<IzTextField v-model.number="newOrg.memberLimit"
 								label="Max Members"
 								type="number" />
-							<NcTextField
-								v-model.number="newOrg.projectsLimit"
+							<IzTextField v-model.number="newOrg.projectsLimit"
 								label="Max Projects"
 								type="number" />
-							<NcTextField
-								v-model.number="sharedStorageGB"
+							<IzTextField v-model.number="sharedStorageGB"
 								label="Shared Storage (GB)"
 								type="number"
 								:min="0" />
-							<NcTextField
-								v-model.number="privateStorageGB"
+							<IzTextField v-model.number="privateStorageGB"
 								label="Private Storage (GB)"
 								type="number"
 								:min="0" />
@@ -164,24 +156,29 @@
 			</div>
 
 			<div class="modal-actions">
-				<NcButton @click="closeModal" type="tertiary">Cancel</NcButton>
-				<NcButton type="primary" @click="handleCreate" :disabled="submitting">
-					<template #icon v-if="submitting">
-						<NcLoadingIcon :size="20" />
+				<IzButton type="tertiary" @click="closeModal">
+					Cancel
+				</IzButton>
+				<IzButton type="primary" :disabled="submitting" @click="handleCreate">
+					<template v-if="submitting" #icon>
+						<IzSpinner :size="20" />
 					</template>
 					{{ submitting ? 'Creating...' : 'Create Organization' }}
-				</NcButton>
+				</IzButton>
 			</div>
 		</div>
-	</NcModal>
+	</IzModal>
 </template>
 
 <script setup lang="ts">
+import IzModal from '../ui/IzModal.vue'
+import IzTextField from '../ui/IzTextField.vue'
+import IzButton from '../ui/IzButton.vue'
+import IzSpinner from '../ui/IzSpinner.vue'
 import { ref, reactive, watch, computed } from 'vue'
-import { NcModal, NcTextField, NcButton, NcLoadingIcon } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateOcsUrl } from '@nextcloud/router'
-import { confirmPassword } from '@nextcloud/password-confirmation'
+import { confirmPassword } from '../../lib/passwordConfirmation'
 
 // Icons
 import AccountGroup from 'vue-material-design-icons/AccountGroup.vue'
@@ -238,14 +235,14 @@ const sharedStorageGB = computed({
 	get: () => parseFloat((newOrg.sharedStoragePerProject / (1024 ** 3)).toFixed(2)),
 	set: (val) => {
 		newOrg.sharedStoragePerProject = Math.round(val * (1024 ** 3))
-	}
+	},
 })
 
 const privateStorageGB = computed({
 	get: () => parseFloat((newOrg.privateStorage / (1024 ** 3)).toFixed(2)),
 	set: (val) => {
 		newOrg.privateStorage = Math.round(val * (1024 ** 3))
-	}
+	},
 })
 
 watch(() => props.show, (val) => {
@@ -270,18 +267,20 @@ const onPlanChange = () => {
 	}
 }
 
-	const handleCreate = async () => {
+const handleCreate = async () => {
 	errors.displayname = !newOrg.displayname ? 'Name is required' : ''
 	errors.adminUserId = !newOrg.adminUserId ? 'Admin user ID is required' : ''
 	errors.adminPassword = !newOrg.adminPassword ? 'Admin password is required' : ''
-	
+
 	if (errors.displayname || errors.adminUserId || errors.adminPassword) return
 
 	submitting.value = true
 	try {
 		await confirmPassword()
-		const payload = { ...newOrg }
-		if (payload.isTrial) {
+		// The server accepts `trial` as an alias alongside `isTrial`; both are
+		// sent when creating a trial, matching the previous behaviour.
+		const payload: Record<string, unknown> = { ...newOrg }
+		if (newOrg.isTrial) {
 			payload.trial = true
 		}
 		await axios.post(generateOcsUrl('apps/organization/organizations'), payload)
@@ -483,7 +482,7 @@ const onPlanChange = () => {
 	.modal-body-grid {
 		gap: 16px;
 	}
-	
+
 	.form-section {
 		padding: 16px;
 	}

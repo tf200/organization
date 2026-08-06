@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import OverviewTab from './tabs/OverviewTab.vue'
 import MembersTab from './tabs/MembersTab.vue'
 import SubscriptionTab from './tabs/SubscriptionTab.vue'
+import BackupsTab from './tabs/BackupsTab.vue'
+import HandoverTab from './tabs/HandoverTab.vue'
 import { ocs } from '../../lib/api'
 import { useAsync } from '../../composables/useAsync'
 import type { Member, Organization } from '../../types'
@@ -62,8 +64,7 @@ const tabs = computed(() => [
 <template>
 	<div class="org-detail">
 		<nav class="iz-tabs" role="tablist">
-			<button
-				v-for="tab in tabs"
+			<button v-for="tab in tabs"
 				:key="tab.key"
 				class="iz-tab"
 				:class="{ 'iz-tab--active': activeTab === tab.key }"
@@ -78,34 +79,32 @@ const tabs = computed(() => [
 
 		<div v-if="detail.error.value" class="iz-error org-detail__error" role="alert">
 			{{ detail.error.value }}
-			<button class="iz-btn iz-btn--accent iz-btn--sm" type="button" @click="detail.run()">Try again</button>
+			<button class="iz-btn iz-btn--accent iz-btn--sm" type="button" @click="detail.run()">
+				Try again
+			</button>
 		</div>
 
 		<div class="org-detail__body">
-			<OverviewTab
-				v-if="activeTab === 'overview'"
+			<OverviewTab v-if="activeTab === 'overview'"
 				:org="full"
 				:loading="detail.pending.value"
 				@edit="emit('changed')" />
 
-			<MembersTab
-				v-else-if="activeTab === 'members'"
+			<MembersTab v-else-if="activeTab === 'members'"
 				:org="full"
 				:members="members"
 				@members-updated="onMembersUpdated" />
 
-			<SubscriptionTab
-				v-else-if="activeTab === 'subscription'"
+			<SubscriptionTab v-else-if="activeTab === 'subscription'"
 				:org="full"
 				@changed="emit('changed')" />
 
-			<div v-else-if="activeTab === 'backups'" class="org-detail__pending">
-				<p class="iz-state">Backups panel lands in the next change.</p>
-			</div>
+			<BackupsTab v-else-if="activeTab === 'backups'"
+				:organization="full" />
 
-			<div v-else class="org-detail__pending">
-				<p class="iz-state">Handover panel lands in the next change.</p>
-			</div>
+			<HandoverTab v-else
+				:organization="full"
+				:members="members" />
 		</div>
 	</div>
 </template>

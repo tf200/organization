@@ -138,23 +138,26 @@ async function createAccount() {
 	<div class="members">
 		<div class="members__toolbar">
 			<div class="iz-segment" role="tablist" aria-label="Member actions">
-				<button
-					class="iz-btn iz-btn--sm"
+				<button class="iz-btn iz-btn--sm"
 					:class="{ 'iz-btn--active': mode === 'current' }"
 					type="button"
-					@click="mode = 'current'">Current</button>
-				<button
-					v-if="seatsLeft > 0"
+					@click="mode = 'current'">
+					Current
+				</button>
+				<button v-if="seatsLeft > 0"
 					class="iz-btn iz-btn--sm"
 					:class="{ 'iz-btn--active': mode === 'add' }"
 					type="button"
-					@click="mode = 'add'">Add existing</button>
-				<button
-					v-if="seatsLeft > 0"
+					@click="mode = 'add'">
+					Add existing
+				</button>
+				<button v-if="seatsLeft > 0"
 					class="iz-btn iz-btn--sm"
 					:class="{ 'iz-btn--active': mode === 'create' }"
 					type="button"
-					@click="mode = 'create'">Create account</button>
+					@click="mode = 'create'">
+					Create account
+				</button>
 			</div>
 
 			<span class="iz-pill" :class="seatsTone">{{ seatsLeft }} seats available</span>
@@ -167,16 +170,19 @@ async function createAccount() {
 
 		<!-- Add existing -->
 		<div v-if="mode === 'add'" class="iz-user-picker">
-			<input
-				v-model="query"
+			<input v-model="query"
 				class="iz-input"
 				type="search"
 				placeholder="Search users by name or email…"
 				aria-label="Search users"
 				@input="onQuery">
 
-			<p v-if="searching" class="iz-state">Searching…</p>
-			<div v-if="searchError" class="iz-error" role="alert">{{ searchError }}</div>
+			<p v-if="searching" class="iz-state">
+				Searching…
+			</p>
+			<div v-if="searchError" class="iz-error" role="alert">
+				{{ searchError }}
+			</div>
 
 			<ul v-if="results.length" class="iz-user-picker__results">
 				<li v-for="user in results" :key="user.uid" class="iz-user-picker__result">
@@ -187,14 +193,15 @@ async function createAccount() {
 						<span class="iz-identity__name">{{ user.displayName || user.uid }}</span>
 						<span class="iz-identity__meta members__mono">{{ user.uid }}</span>
 					</div>
-					<button
-						class="iz-user-picker__add"
+					<button class="iz-user-picker__add"
 						type="button"
 						:disabled="addingUid === user.uid"
 						:aria-label="`Add ${user.displayName || user.uid}`"
 						@click="addMember(user)">
-						<span v-if="addingUid === user.uid" class="iz-spinner"></span>
-						<template v-else>+</template>
+						<span v-if="addingUid === user.uid" class="iz-spinner" />
+						<template v-else>
+							+
+						</template>
 					</button>
 				</li>
 			</ul>
@@ -209,33 +216,53 @@ async function createAccount() {
 			<div class="members__form-grid">
 				<div>
 					<label class="iz-label" for="new-uid">User ID <span aria-hidden="true">*</span></label>
-					<input id="new-uid" v-model="draft.userId" class="iz-input" required placeholder="username">
+					<input id="new-uid"
+						v-model="draft.userId"
+						class="iz-input"
+						required
+						placeholder="username">
 				</div>
 				<div>
 					<label class="iz-label" for="new-pw">Password <span aria-hidden="true">*</span></label>
-					<input id="new-pw" v-model="draft.password" class="iz-input" type="password" required placeholder="Temporary password">
+					<input id="new-pw"
+						v-model="draft.password"
+						class="iz-input"
+						type="password"
+						required
+						placeholder="Temporary password">
 				</div>
 				<div>
 					<label class="iz-label" for="new-name">Display name</label>
-					<input id="new-name" v-model="draft.displayName" class="iz-input" placeholder="Full name (optional)">
+					<input id="new-name"
+						v-model="draft.displayName"
+						class="iz-input"
+						placeholder="Full name (optional)">
 				</div>
 				<div>
 					<label class="iz-label" for="new-email">Email</label>
-					<input id="new-email" v-model="draft.email" class="iz-input" type="email" placeholder="email@example.com (optional)">
+					<input id="new-email"
+						v-model="draft.email"
+						class="iz-input"
+						type="email"
+						placeholder="email@example.com (optional)">
 				</div>
 			</div>
 
-			<div v-if="createError" class="iz-error" role="alert">{{ createError }}</div>
+			<div v-if="createError" class="iz-error" role="alert">
+				{{ createError }}
+			</div>
 
 			<button class="iz-btn iz-btn--primary iz-btn--sm" type="submit" :disabled="!canCreate || creating">
-				<span v-if="creating" class="iz-spinner"></span>
+				<span v-if="creating" class="iz-spinner" />
 				{{ creating ? 'Creating…' : 'Create account & add' }}
 			</button>
 		</form>
 
 		<!-- Current -->
 		<div v-else>
-			<div v-if="!members.length" class="iz-empty">No members yet.</div>
+			<div v-if="!members.length" class="iz-empty">
+				No members yet.
+			</div>
 			<ul v-else class="members__list">
 				<li v-for="member in members" :key="member.uid" class="members__row">
 					<span class="iz-identity__avatar iz-identity__avatar--sm" aria-hidden="true">
@@ -252,21 +279,21 @@ async function createAccount() {
 					</span>
 					<!-- Disabled with a reason rather than hidden: absence reads as a
 					     missing feature, not as a rule. -->
-					<button
-						class="iz-btn iz-btn--icon iz-btn--sm"
+					<button class="iz-btn iz-btn--icon iz-btn--sm"
 						type="button"
 						:disabled="member.role === 'admin'"
 						:title="member.role === 'admin'
 							? 'Organization admins cannot be removed'
 							: `Remove ${member.displayName || member.uid}`"
 						:aria-label="`Remove ${member.displayName || member.uid}`"
-						@click="removeTarget = member">&times;</button>
+						@click="removeTarget = member">
+						&times;
+					</button>
 				</li>
 			</ul>
 		</div>
 
-		<ConfirmDialog
-			v-if="removeTarget"
+		<ConfirmDialog v-if="removeTarget"
 			:title="`Remove ${removeTarget.displayName || removeTarget.uid}?`"
 			:message="`They will lose access to this organization's projects and shared files. Their Nextcloud account is not deleted.`"
 			confirm-label="Remove member"

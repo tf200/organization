@@ -35,7 +35,9 @@ const isTrial = computed(() => props.org.type === 'trial')
 				<span class="iz-section-title">Subscription</span>
 				<dl class="subscription__kv">
 					<dt>Subscription ID</dt>
-					<dd class="subscription__mono">{{ sub?.id ?? '—' }}</dd>
+					<dd class="subscription__mono">
+						{{ sub?.id ?? '—' }}
+					</dd>
 
 					<dt>Status</dt>
 					<dd><span class="iz-pill" :class="statusTone">{{ titleCase(sub?.status) }}</span></dd>

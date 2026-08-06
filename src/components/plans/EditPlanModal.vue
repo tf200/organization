@@ -1,6 +1,5 @@
 <template>
-	<NcModal
-		v-if="show"
+	<IzModal v-if="show"
 		title="Edit Plan"
 		size="large"
 		class="edit-plan-modal"
@@ -15,20 +14,23 @@
 							<h3>Plan Details</h3>
 						</div>
 						<div class="section-body">
-							<NcTextField
-								v-model="form.name"
+							<IzTextField v-model="form.name"
 								label="Plan Name"
 								:error="!!errors.name"
 								:helper-text="errors.name"
 								required
 								class="full-width" />
-							
+
 							<div class="form-row">
 								<label class="nc-label-text">Visibility</label>
 								<div class="select-wrapper">
 									<select v-model="form.isPublic" class="nc-select-native">
-										<option :value="true">Public</option>
-										<option :value="false">Private</option>
+										<option :value="true">
+											Public
+										</option>
+										<option :value="false">
+											Private
+										</option>
 									</select>
 								</div>
 							</div>
@@ -42,20 +44,25 @@
 							<h3>Pricing</h3>
 						</div>
 						<div class="section-body grid-2-tight">
-							<NcTextField
-								v-model.number="form.price"
+							<IzTextField v-model.number="form.price"
 								label="Price"
 								type="number"
 								step="0.01"
 								:min="0" />
-							
+
 							<div class="form-row">
 								<label class="nc-label-text">Currency</label>
 								<div class="select-wrapper">
 									<select v-model="form.currency" class="nc-select-native">
-										<option value="EUR">EUR</option>
-										<option value="USD">USD</option>
-										<option value="GBP">GBP</option>
+										<option value="EUR">
+											EUR
+										</option>
+										<option value="USD">
+											USD
+										</option>
+										<option value="GBP">
+											GBP
+										</option>
 									</select>
 								</div>
 							</div>
@@ -71,23 +78,19 @@
 							<h3>Resource Limits</h3>
 						</div>
 						<div class="section-body grid-2-tight">
-							<NcTextField
-								v-model.number="form.maxMembers"
+							<IzTextField v-model.number="form.maxMembers"
 								label="Max Members"
 								type="number"
 								:min="1" />
-							<NcTextField
-								v-model.number="form.maxProjects"
+							<IzTextField v-model.number="form.maxProjects"
 								label="Max Projects"
 								type="number"
 								:min="1" />
-							<NcTextField
-								v-model.number="sharedStorageGB"
+							<IzTextField v-model.number="sharedStorageGB"
 								label="Shared Storage (GB)"
 								type="number"
 								:min="0" />
-							<NcTextField
-								v-model.number="privateStorageGB"
+							<IzTextField v-model.number="privateStorageGB"
 								label="Private Storage (GB)"
 								type="number"
 								:min="0" />
@@ -97,24 +100,29 @@
 			</div>
 
 			<div class="modal-actions">
-				<NcButton @click="closeModal" type="tertiary">Cancel</NcButton>
-				<NcButton type="primary" @click="handleSubmit" :disabled="submitting">
-					<template #icon v-if="submitting">
-						<NcLoadingIcon :size="20" />
+				<IzButton type="tertiary" @click="closeModal">
+					Cancel
+				</IzButton>
+				<IzButton type="primary" :disabled="submitting" @click="handleSubmit">
+					<template v-if="submitting" #icon>
+						<IzSpinner :size="20" />
 					</template>
 					{{ submitting ? 'Saving...' : 'Save Changes' }}
-				</NcButton>
+				</IzButton>
 			</div>
 		</div>
-	</NcModal>
+	</IzModal>
 </template>
 
 <script setup lang="ts">
+import IzModal from '../ui/IzModal.vue'
+import IzTextField from '../ui/IzTextField.vue'
+import IzButton from '../ui/IzButton.vue'
+import IzSpinner from '../ui/IzSpinner.vue'
 import { ref, reactive, watch, computed } from 'vue'
-import { NcModal, NcTextField, NcButton, NcLoadingIcon } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateOcsUrl } from '@nextcloud/router'
-import { confirmPassword } from '@nextcloud/password-confirmation'
+import { confirmPassword } from '../../lib/passwordConfirmation'
 
 import CardAccountDetails from 'vue-material-design-icons/CardAccountDetails.vue'
 import Database from 'vue-material-design-icons/Database.vue'
@@ -140,21 +148,21 @@ const form = reactive({
 	privateStoragePerUser: 0,
 	price: 0,
 	currency: 'EUR',
-	isPublic: true
+	isPublic: true,
 })
 
 const sharedStorageGB = computed({
 	get: () => parseFloat((form.sharedStoragePerProject / (1024 ** 3)).toFixed(2)),
 	set: (val) => {
 		form.sharedStoragePerProject = Math.round(val * (1024 ** 3))
-	}
+	},
 })
 
 const privateStorageGB = computed({
 	get: () => parseFloat((form.privateStoragePerUser / (1024 ** 3)).toFixed(2)),
 	set: (val) => {
 		form.privateStoragePerUser = Math.round(val * (1024 ** 3))
-	}
+	},
 })
 
 watch(() => props.show, (val) => {
@@ -167,7 +175,7 @@ watch(() => props.show, (val) => {
 			privateStoragePerUser: props.plan.privateStoragePerUser,
 			price: props.plan.price || 0,
 			currency: props.plan.currency || 'EUR',
-			isPublic: props.plan.isPublic
+			isPublic: props.plan.isPublic,
 		})
 		errors.name = ''
 	}

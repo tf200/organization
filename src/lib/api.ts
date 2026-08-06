@@ -9,10 +9,12 @@ import { generateOcsUrl } from '@nextcloud/router'
  * "Cannot delete plan: it is used by N subscriptions".
  */
 export class ApiError extends Error {
+
 	constructor(message: string, readonly status: number) {
 		super(message)
 		this.name = 'ApiError'
 	}
+
 }
 
 export interface OcsInit {
@@ -40,7 +42,11 @@ function messageFrom(e: unknown): { message: string; status: number } {
 	}
 }
 
-/** Unwraps ocs.data and turns every failure into a readable ApiError. */
+/**
+ * Unwraps ocs.data and turns every failure into a readable ApiError.
+ * @param path
+ * @param init
+ */
 export async function ocs<T>(path: string, init: OcsInit = {}): Promise<T> {
 	const { method = 'GET', params, body, form = false, headers = {} } = init
 	try {

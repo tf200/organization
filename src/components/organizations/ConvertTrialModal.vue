@@ -1,6 +1,5 @@
 <template>
-	<NcModal
-		v-if="show"
+	<IzModal v-if="show"
 		title="Convert Trial to Standard"
 		size="large"
 		class="convert-trial-modal"
@@ -8,8 +7,7 @@
 		<div class="modal-content">
 			<div class="modal-header">
 				<div class="org-avatar">
-					<NcAvatar
-						:display-name="organization?.displayname"
+					<IzAvatar :display-name="organization?.displayname"
 						:size="64"
 						:disable-tooltip="true" />
 				</div>
@@ -46,8 +44,12 @@
 								<label class="nc-label-text">Validity Period</label>
 								<div class="select-wrapper">
 									<select v-model="validity" class="nc-select-native">
-										<option value="1 month">1 Month</option>
-										<option value="1 year">1 Year</option>
+										<option value="1 month">
+											1 Month
+										</option>
+										<option value="1 year">
+											1 Year
+										</option>
 									</select>
 								</div>
 							</div>
@@ -88,27 +90,31 @@
 			</div>
 
 			<div class="modal-actions">
-				<NcButton @click="closeModal" type="tertiary">Cancel</NcButton>
-				<NcButton
-					type="primary"
-					@click="handleConvert"
-					:disabled="submitting || !selectedPlanId">
-					<template #icon v-if="submitting">
-						<NcLoadingIcon :size="20" />
+				<IzButton type="tertiary" @click="closeModal">
+					Cancel
+				</IzButton>
+				<IzButton type="primary"
+					:disabled="submitting || !selectedPlanId"
+					@click="handleConvert">
+					<template v-if="submitting" #icon>
+						<IzSpinner :size="20" />
 					</template>
 					{{ submitting ? 'Converting...' : 'Convert to Standard' }}
-				</NcButton>
+				</IzButton>
 			</div>
 		</div>
-	</NcModal>
+	</IzModal>
 </template>
 
 <script setup lang="ts">
+import IzAvatar from '../ui/IzAvatar.vue'
+import IzModal from '../ui/IzModal.vue'
+import IzButton from '../ui/IzButton.vue'
+import IzSpinner from '../ui/IzSpinner.vue'
 import { ref, computed, watch } from 'vue'
-import { NcModal, NcButton, NcLoadingIcon, NcAvatar } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateOcsUrl } from '@nextcloud/router'
-import { confirmPassword } from '@nextcloud/password-confirmation'
+import { confirmPassword } from '../../lib/passwordConfirmation'
 
 import Briefcase from 'vue-material-design-icons/Briefcase.vue'
 import Database from 'vue-material-design-icons/Database.vue'

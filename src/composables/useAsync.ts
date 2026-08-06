@@ -7,12 +7,17 @@ import { ApiError } from '../lib/api'
  * `pending` is cleared in `finally`, which preserves the existing behaviour
  * that a button always re-enables after a failure. What changes is that
  * `error` is now something the caller is expected to render.
+ * @param fn
  */
 export function useAsync<A extends unknown[], T>(fn: (...args: A) => Promise<T>) {
 	const data = shallowRef<T | null>(null)
 	const error = ref<string>('')
 	const pending = ref(false)
 
+	/**
+	 *
+	 * @param {...any} args
+	 */
 	async function run(...args: A): Promise<T | null> {
 		pending.value = true
 		error.value = ''

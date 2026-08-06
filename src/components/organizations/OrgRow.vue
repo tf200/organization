@@ -46,19 +46,16 @@ const endLabel = computed(() => {
 </script>
 
 <template>
-	<article
-		class="iz-row iz-row--card iz-row--expandable"
+	<article class="iz-row iz-row--card iz-row--expandable"
 		:class="{ 'iz-row--expanded': expanded }">
-		<div
-			class="iz-row__header"
+		<div class="iz-row__header"
 			role="button"
 			tabindex="0"
 			:aria-expanded="expanded"
 			@click="emit('toggle')"
 			@keydown.enter.prevent="emit('toggle')"
 			@keydown.space.prevent="emit('toggle')">
-			<span
-				class="iz-identity__avatar"
+			<span class="iz-identity__avatar"
 				:class="{ 'iz-identity__avatar--soft': isTrial }"
 				aria-hidden="true">{{ org.displayname.charAt(0).toUpperCase() }}</span>
 
@@ -72,7 +69,7 @@ const endLabel = computed(() => {
 			<div class="org-row__seats">
 				<span class="org-row__seat-count">{{ org.usercount }} / {{ maxMembers }} members</span>
 				<div class="iz-meter">
-					<div class="iz-meter__fill" :class="seatTone" :style="{ width: seatPct + '%' }"></div>
+					<div class="iz-meter__fill" :class="seatTone" :style="{ width: seatPct + '%' }" />
 				</div>
 			</div>
 
@@ -81,15 +78,20 @@ const endLabel = computed(() => {
 					{{ isTrial ? 'Trial' : 'Standard' }}
 				</span>
 				<span class="iz-pill" :class="statusTone">
-					<span class="iz-dot" aria-hidden="true"></span>{{ statusLabel }}
+					<span class="iz-dot" aria-hidden="true" />{{ statusLabel }}
 				</span>
 				<span class="org-row__end">{{ endLabel }}</span>
-				<svg
-					class="iz-row__chevron"
+				<svg class="iz-row__chevron"
 					:class="{ 'iz-row__chevron--open': expanded }"
-					width="14" height="14" viewBox="0 0 24 24" fill="none"
-					stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-					stroke-linejoin="round" aria-hidden="true">
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true">
 					<polyline points="6 9 12 15 18 9" />
 				</svg>
 			</div>

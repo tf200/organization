@@ -1,6 +1,5 @@
 <template>
-	<NcModal
-		v-if="show"
+	<IzModal v-if="show"
 		title="Edit Organization"
 		size="large"
 		class="edit-org-modal"
@@ -8,8 +7,7 @@
 		<div class="modal-content">
 			<div class="modal-header">
 				<div class="org-avatar">
-					<NcAvatar
-						:display-name="organization?.displayname"
+					<IzAvatar :display-name="organization?.displayname"
 						:size="64"
 						:disable-tooltip="true" />
 				</div>
@@ -27,8 +25,7 @@
 						<h3>Organization Identity</h3>
 					</div>
 					<div class="section-body">
-						<NcTextField
-							v-model="form.displayname"
+						<IzTextField v-model="form.displayname"
 							label="Organization Name"
 							:helper-text="errors.displayname"
 							:error="!!errors.displayname"
@@ -37,7 +34,7 @@
 							<template #leading-icon>
 								<Domain :size="16" />
 							</template>
-						</NcTextField>
+						</IzTextField>
 					</div>
 				</div>
 
@@ -48,63 +45,64 @@
 						<h3>Contact Information</h3>
 					</div>
 					<div class="section-body grid-2">
-						<NcTextField
-							v-model="form.contactFirstName"
+						<IzTextField v-model="form.contactFirstName"
 							label="First Name"
 							placeholder="Contact person's first name">
 							<template #leading-icon>
 								<Account :size="16" />
 							</template>
-						</NcTextField>
-						<NcTextField
-							v-model="form.contactLastName"
+						</IzTextField>
+						<IzTextField v-model="form.contactLastName"
 							label="Last Name"
 							placeholder="Contact person's last name">
 							<template #leading-icon>
 								<Account :size="16" />
 							</template>
-						</NcTextField>
-						<NcTextField
-							v-model="form.contactEmail"
+						</IzTextField>
+						<IzTextField v-model="form.contactEmail"
 							label="Email Address"
 							type="email"
 							placeholder="contact@company.com">
 							<template #leading-icon>
 								<Email :size="16" />
 							</template>
-						</NcTextField>
-						<NcTextField
-							v-model="form.contactPhone"
+						</IzTextField>
+						<IzTextField v-model="form.contactPhone"
 							label="Phone Number"
 							type="tel"
 							placeholder="+1 234 567 890">
 							<template #leading-icon>
 								<Phone :size="16" />
 							</template>
-						</NcTextField>
+						</IzTextField>
 					</div>
 				</div>
 			</div>
 
 			<div class="modal-actions">
-				<NcButton @click="closeModal" type="tertiary">Cancel</NcButton>
-				<NcButton
-					type="primary"
-					@click="handleSave"
-					:disabled="saving">
-					<template #icon v-if="saving">
-						<NcLoadingIcon :size="20" />
+				<IzButton type="tertiary" @click="closeModal">
+					Cancel
+				</IzButton>
+				<IzButton type="primary"
+					:disabled="saving"
+					@click="handleSave">
+					<template v-if="saving" #icon>
+						<IzSpinner :size="20" />
 					</template>
 					{{ saving ? 'Saving...' : 'Save Changes' }}
-				</NcButton>
+				</IzButton>
 			</div>
 		</div>
-	</NcModal>
+	</IzModal>
 </template>
 
 <script setup lang="ts">
+import IzAvatar from '../ui/IzAvatar.vue'
+import IzModal from '../ui/IzModal.vue'
+import IzTextField from '../ui/IzTextField.vue'
+import IzButton from '../ui/IzButton.vue'
+import IzSpinner from '../ui/IzSpinner.vue'
 import { ref, reactive, watch } from 'vue'
-import { NcModal, NcTextField, NcButton, NcLoadingIcon, NcAvatar } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateOcsUrl } from '@nextcloud/router'
 
@@ -165,7 +163,7 @@ const handleSave = async () => {
 	try {
 		const response = await axios.put(
 			generateOcsUrl(`apps/organization/organizations/${props.organization.id}`),
-			{ ...form }
+			{ ...form },
 		)
 		emit('saved', response.data.ocs.data.organization)
 		closeModal()

@@ -25,8 +25,7 @@ function select(key: TabKey) {
 
 <template>
 	<nav class="iz-tabs iz-tabs--display" role="tablist">
-		<button
-			v-for="tab in TABS"
+		<button v-for="tab in TABS"
 			:key="tab.key"
 			class="iz-tab"
 			:class="{ 'iz-tab--active': modelValue === tab.key }"

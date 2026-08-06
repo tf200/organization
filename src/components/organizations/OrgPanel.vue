@@ -56,7 +56,11 @@ function toggle(id: number) {
 	expandedId.value = expandedId.value === id ? null : id
 }
 
-/** Merge detail fetched by the row back into the list entry. */
+/**
+ * Merge detail fetched by the row back into the list entry.
+ * @param id
+ * @param patchData
+ */
 function patch(id: number, patchData: Partial<Organization>) {
 	const i = organizations.value.findIndex((o) => o.id === id)
 	if (i !== -1) organizations.value[i] = { ...organizations.value[i], ...patchData }
@@ -72,35 +76,48 @@ defineExpose({ reload: () => list.run() })
 				Organizations
 				<span v-if="organizations.length" class="iz-badge iz-badge--muted">{{ organizations.length }}</span>
 			</h3>
-			<button class="iz-btn iz-btn--primary iz-btn--sm" type="button">+ New organization</button>
+			<button class="iz-btn iz-btn--primary iz-btn--sm" type="button">
+				+ New organization
+			</button>
 		</div>
 
 		<div class="org-panel__toolbar">
-			<input
-				v-model="search"
+			<input v-model="search"
 				class="iz-input org-panel__search"
 				type="search"
 				placeholder="Search by name or ID…"
 				aria-label="Search organizations">
 			<select v-model="typeFilter" class="iz-select org-panel__filter" aria-label="Filter by type">
-				<option value="all">All types</option>
-				<option value="standard">Standard</option>
-				<option value="trial">Trial</option>
+				<option value="all">
+					All types
+				</option>
+				<option value="standard">
+					Standard
+				</option>
+				<option value="trial">
+					Trial
+				</option>
 			</select>
 			<select v-model="statusFilter" class="iz-select org-panel__filter" aria-label="Filter by status">
-				<option value="all">All statuses</option>
-				<option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+				<option value="all">
+					All statuses
+				</option>
+				<option v-for="s in statuses" :key="s" :value="s">
+					{{ s }}
+				</option>
 			</select>
 		</div>
 
 		<div class="org-panel__body">
 			<div v-if="list.pending.value && !organizations.length" class="org-panel__state">
-				<span class="iz-spinner iz-spinner--lg" aria-label="Loading organizations"></span>
+				<span class="iz-spinner iz-spinner--lg" aria-label="Loading organizations" />
 			</div>
 
 			<div v-else-if="list.error.value" class="iz-error" role="alert">
 				{{ list.error.value }}
-				<button class="iz-btn iz-btn--accent iz-btn--sm" type="button" @click="list.run()">Try again</button>
+				<button class="iz-btn iz-btn--accent iz-btn--sm" type="button" @click="list.run()">
+					Try again
+				</button>
 			</div>
 
 			<div v-else-if="!organizations.length" class="iz-empty">
@@ -110,13 +127,16 @@ defineExpose({ reload: () => list.run() })
 			<!-- Distinct from the above: the old UI showed "Get started by creating
 			     a new organization" even when a filter was the cause. -->
 			<div v-else-if="!filtered.length" class="iz-empty">
-				<p class="org-panel__empty-text">No organizations match the current filters.</p>
-				<button class="iz-btn iz-btn--plain iz-btn--sm" type="button" @click="clearFilters">Clear filters</button>
+				<p class="org-panel__empty-text">
+					No organizations match the current filters.
+				</p>
+				<button class="iz-btn iz-btn--plain iz-btn--sm" type="button" @click="clearFilters">
+					Clear filters
+				</button>
 			</div>
 
 			<div v-else class="org-panel__rows">
-				<OrgRow
-					v-for="org in filtered"
+				<OrgRow v-for="org in filtered"
 					:key="org.id"
 					:org="org"
 					:expanded="expandedId === org.id"

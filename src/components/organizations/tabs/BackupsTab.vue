@@ -7,7 +7,9 @@
 					<CloudDownload :size="28" />
 				</div>
 				<div class="intro-text">
-					<h3 class="intro-title">Organization Backup</h3>
+					<h3 class="intro-title">
+						Organization Backup
+					</h3>
 					<p class="intro-desc">
 						Export shared project files as a ZIP archive with readable summaries, spreadsheet-friendly tables,
 						and JSON data. Backups expire automatically after 24 hours.
@@ -18,27 +20,32 @@
 				<div class="backup-type-picker">
 					<label for="backup-type-select">Backup Type</label>
 					<select id="backup-type-select" v-model="selectedBackupType" :disabled="creating">
-						<option value="full">Full</option>
-						<option value="incremental">Incremental</option>
+						<option value="full">
+							Full
+						</option>
+						<option value="incremental">
+							Incremental
+						</option>
 					</select>
 				</div>
-				<NcButton
-					type="primary"
+				<IzButton type="primary"
 					:disabled="creating"
 					@click="createJob">
 					<template #icon>
-						<NcLoadingIcon v-if="creating" :size="20" />
+						<IzSpinner v-if="creating" :size="20" />
 						<Plus v-else :size="20" />
 					</template>
 					New Backup
-				</NcButton>
+				</IzButton>
 			</div>
 		</div>
 
 		<!-- Loading State -->
 		<div v-if="initialLoading" class="state-card">
-			<NcLoadingIcon :size="32" />
-			<p class="state-text">Loading backup jobs…</p>
+			<IzSpinner :size="32" />
+			<p class="state-text">
+				Loading backup jobs…
+			</p>
 		</div>
 
 		<!-- Empty State -->
@@ -46,28 +53,28 @@
 			<div class="empty-icon-wrap">
 				<DatabaseOff :size="40" />
 			</div>
-			<h4 class="empty-title">No backups yet</h4>
+			<h4 class="empty-title">
+				No backups yet
+			</h4>
 			<p class="empty-desc">
 				Create your first backup to export all shared project files.
 				Backups include readable overviews, CSV tables, JSON metadata, and the full folder structure.
 			</p>
-			<NcButton
-				type="primary"
+			<IzButton type="primary"
 				:disabled="creating"
 				@click="createJob">
 				<template #icon>
-					<NcLoadingIcon v-if="creating" :size="20" />
+					<IzSpinner v-if="creating" :size="20" />
 					<Plus v-else :size="20" />
 				</template>
 				Create First Backup
-			</NcButton>
+			</IzButton>
 		</div>
 
 		<!-- Jobs List -->
 		<template v-else>
 			<TransitionGroup name="job-list" tag="div" class="jobs-list">
-				<div
-					v-for="job in jobs"
+				<div v-for="job in jobs"
 					:key="job.jobId"
 					class="job-card"
 					:class="{ expanded: selectedJob?.jobId === job.jobId }"
@@ -77,7 +84,7 @@
 						<div class="job-left">
 							<!-- Status Indicator -->
 							<div class="status-indicator" :class="job.status">
-								<NcLoadingIcon v-if="isActiveStatus(job.status)" :size="18" />
+								<IzSpinner v-if="isActiveStatus(job.status)" :size="18" />
 								<Check v-else-if="job.status === 'completed'" :size="18" />
 								<AlertCircle v-else-if="job.status === 'failed'" :size="18" />
 								<ClockOutline v-else :size="18" />
@@ -105,34 +112,31 @@
 						</div>
 
 						<div class="job-right">
-							<NcButton
-								v-if="job.status === 'completed' && job.backupType === 'full'"
+							<IzButton v-if="job.status === 'completed' && job.backupType === 'full'"
 								type="secondary"
-								@click.stop="createRollbackJob(job.jobId, 'dry_run')"
-								:disabled="creatingRollback">
+								:disabled="creatingRollback"
+								@click.stop="createRollbackJob(job.jobId, 'dry_run')">
 								Dry-run Rollback
-							</NcButton>
-							<NcButton
-								v-if="job.status === 'completed'"
+							</IzButton>
+							<IzButton v-if="job.status === 'completed'"
 								type="primary"
-								@click.stop="download(job)"
-								:disabled="actionLoading === job.jobId">
+								:title="downloadBlockedReason(job) || 'Download the archive'"
+								:disabled="actionLoading === job.jobId || !!downloadBlockedReason(job)"
+								@click.stop="download(job)">
 								<template #icon>
 									<Download :size="18" />
 								</template>
 								Download
-							</NcButton>
-							<NcButton
-								type="error"
-								@click.stop="confirmDelete(job)"
-								:disabled="actionLoading === job.jobId">
+							</IzButton>
+							<IzButton type="error"
+								:disabled="actionLoading === job.jobId"
+								@click.stop="confirmDelete(job)">
 								<template #icon>
-									<NcLoadingIcon v-if="actionLoading === job.jobId" :size="18" />
+									<IzSpinner v-if="actionLoading === job.jobId" :size="18" />
 									<Delete v-else :size="18" />
 								</template>
-							</NcButton>
-							<ChevronDown
-								:size="20"
+							</IzButton>
+							<ChevronDown :size="20"
 								class="expand-icon"
 								:class="{ rotated: selectedJob?.jobId === job.jobId }" />
 						</div>
@@ -151,8 +155,7 @@
 
 					<!-- Expanded Detail Panel -->
 					<Transition name="expand">
-						<div
-							v-if="selectedJob?.jobId === job.jobId"
+						<div v-if="selectedJob?.jobId === job.jobId"
 							class="job-detail"
 							@click.stop>
 							<!-- Detail Grid -->
@@ -167,19 +170,27 @@
 								</div>
 								<div class="detail-item">
 									<span class="detail-label">Created</span>
-									<span class="detail-value">{{ selectedJob.createdAt || '—' }}</span>
+									<span class="detail-value">{{ formatDate(selectedJob.createdAt) }}</span>
 								</div>
 								<div class="detail-item">
-									<span class="detail-label">Completed</span>
-									<span class="detail-value">{{ selectedJob.completedAt || '—' }}</span>
+									<!-- Was bound to completedAt, which mapJobRow never returns, so this
+										     row rendered an em-dash for every job ever. -->
+									<span class="detail-label">Finished</span>
+									<span class="detail-value">{{ formatDate(selectedJob.finishedAt) }}</span>
 								</div>
 								<div v-if="selectedJob.expiresAt" class="detail-item">
 									<span class="detail-label">Expires</span>
-									<span class="detail-value">{{ selectedJob.expiresAt }}</span>
+									<span class="detail-value">{{ formatDate(selectedJob.expiresAt) }}</span>
 								</div>
-								<div v-if="selectedJob.fileSize" class="detail-item">
-									<span class="detail-label">File Size</span>
-									<span class="detail-value">{{ formatFileSize(selectedJob.fileSize) }}</span>
+								<div v-if="selectedJob.artifactSize" class="detail-item">
+									<!-- Was bound to fileSize, also never returned, so this row never
+										     rendered at all. -->
+									<span class="detail-label">Artifact size</span>
+									<span class="detail-value">{{ formatFileSize(selectedJob.artifactSize) }}</span>
+								</div>
+								<div v-if="selectedJob.artifactName" class="detail-item">
+									<span class="detail-label">Artifact</span>
+									<span class="detail-value mono">{{ selectedJob.artifactName }}</span>
 								</div>
 							</div>
 
@@ -196,8 +207,7 @@
 								</div>
 
 								<div v-else class="timeline">
-									<div
-										v-for="(evt, idx) in events"
+									<div v-for="(evt, idx) in events"
 										:key="evt.id"
 										class="timeline-item"
 										:class="evt.level">
@@ -212,7 +222,9 @@
 												</span>
 												<span class="event-time">{{ formatDate(evt.createdAt) }}</span>
 											</div>
-											<p class="event-message">{{ evt.message }}</p>
+											<p class="event-message">
+												{{ evt.message }}
+											</p>
 										</div>
 									</div>
 								</div>
@@ -242,21 +254,31 @@
 							<span>Source backup: #{{ job.sourceBackupJobId }}</span>
 							<span>{{ formatDate(job.createdAt) }}</span>
 						</div>
-						<div v-if="job.errorMessage" class="rollback-error">{{ job.errorMessage }}</div>
+						<div v-if="job.errorMessage" class="rollback-error">
+							{{ job.errorMessage }}
+						</div>
 						<div v-if="hasRollbackValidationSummary(job)" class="rollback-validation">
 							<div class="rollback-validation-status" :class="{ blocked: job.result?.canApply === false, ready: job.result?.canApply === true }">
 								{{ job.result?.canApply === true ? 'Validation passed' : 'Validation blocked' }}
 							</div>
 							<div v-if="rollbackValidationErrors(job).length" class="rollback-validation-section">
-								<div class="rollback-validation-label">Validation errors</div>
+								<div class="rollback-validation-label">
+									Validation errors
+								</div>
 								<ul class="rollback-validation-list">
-									<li v-for="message in rollbackValidationErrors(job)" :key="message">{{ message }}</li>
+									<li v-for="message in rollbackValidationErrors(job)" :key="message">
+										{{ message }}
+									</li>
 								</ul>
 							</div>
 							<div v-if="rollbackWarnings(job).length" class="rollback-validation-section">
-								<div class="rollback-validation-label">Warnings</div>
+								<div class="rollback-validation-label">
+									Warnings
+								</div>
 								<ul class="rollback-validation-list warnings">
-									<li v-for="message in rollbackWarnings(job)" :key="message">{{ message }}</li>
+									<li v-for="message in rollbackWarnings(job)" :key="message">
+										{{ message }}
+									</li>
 								</ul>
 							</div>
 							<div v-if="rollbackImpactEntries(job).length" class="rollback-impact">
@@ -267,45 +289,38 @@
 						</div>
 					</div>
 					<div class="rollback-actions">
-						<NcButton
-							v-if="job.mode === 'dry_run' && job.status === 'completed' && job.result?.canApply === true"
+						<IzButton v-if="job.mode === 'dry_run' && job.status === 'completed' && job.result?.canApply === true"
 							type="primary"
 							:disabled="creatingRollback"
 							@click="createRollbackJob(job.sourceBackupJobId, 'apply')">
 							Apply Rollback
-						</NcButton>
+						</IzButton>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- Delete Confirmation Modal -->
-		<NcDialog
-			v-if="deleteTarget"
-			:name="'Delete Backup #' + deleteTarget.jobId"
-			@closing="deleteTarget = null">
-			<p>Are you sure you want to delete <strong>Backup #{{ deleteTarget.jobId }}</strong>?</p>
-			<p class="delete-warning">This action cannot be undone. The backup file will be permanently removed.</p>
-			<template #actions>
-				<NcButton type="tertiary" @click="deleteTarget = null">Cancel</NcButton>
-				<NcButton type="error" @click="deleteJob">
-					<template #icon>
-						<NcLoadingIcon v-if="actionLoading === deleteTarget.jobId" :size="18" />
-						<Delete v-else :size="18" />
-					</template>
-					Delete Backup
-				</NcButton>
-			</template>
-		</NcDialog>
+		<ConfirmDialog v-if="deleteTarget"
+			:title="'Delete Backup #' + deleteTarget.jobId"
+			message="This cannot be undone. The archive is removed permanently."
+			confirm-label="Delete backup"
+			busy-label="Deleting…"
+			danger
+			:busy="actionLoading === deleteTarget.jobId"
+			:error="deleteError"
+			@confirm="deleteJob"
+			@cancel="deleteTarget = null; deleteError = ''" />
 	</div>
 </template>
 
 <script setup lang="ts">
+import ConfirmDialog from '../../ConfirmDialog.vue'
+import IzButton from '../../ui/IzButton.vue'
+import IzSpinner from '../../ui/IzSpinner.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { NcButton, NcLoadingIcon, NcDialog } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateOcsUrl, generateUrl } from '@nextcloud/router'
-import { confirmPassword } from '@nextcloud/password-confirmation'
+import { confirmPassword } from '../../../lib/passwordConfirmation'
 
 import Download from 'vue-material-design-icons/Download.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
@@ -344,6 +359,7 @@ const rollbackJobs = ref<any[]>([])
 const selectedJob = ref<any | null>(null)
 const events = ref<any[]>([])
 const deleteTarget = ref<any | null>(null)
+const deleteError = ref('')
 const selectedBackupType = ref<'full' | 'incremental'>('full')
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -558,6 +574,27 @@ async function toggleJob(job: any) {
 	}
 }
 
+/**
+ * BackupDownloadController 404s unless the job is completed AND has a
+ * non-empty artifactName AND has not expired AND the file still exists.
+ * The UI only checked status, and because download() navigates the whole
+ * page via window.location.href, that 404 discarded all component state.
+ * The file-exists check cannot be done client-side; the rest can.
+ * @param job
+ */
+function downloadBlockedReason(job: any): string {
+	if (!job || job.status !== 'completed') return ''
+	if (!job.artifactName) return 'No archive was produced for this job.'
+	const raw = job.expiresAt
+	if (raw) {
+		const t = Date.parse(String(raw).replace(' ', 'T') + 'Z')
+		if (Number.isFinite(t) && t <= Date.now()) {
+			return 'The archive expired and was removed after 24 hours.'
+		}
+	}
+	return ''
+}
+
 async function download(job: any) {
 	await confirmPassword()
 	window.location.href = downloadUrl(job.jobId)
@@ -571,17 +608,28 @@ async function deleteJob() {
 	if (!deleteTarget.value) return
 	const job = deleteTarget.value
 	actionLoading.value = job.jobId
+	deleteError.value = ''
 	try {
 		await confirmPassword()
 		await axios.delete(jobUrl(job.jobId))
 		if (selectedJob.value?.jobId === job.jobId) {
+			// Without this the 2s timer keeps polling a job that now 404s. The
+			// stopPolling() inside the tick is unreachable once fetchJob returns
+			// null, so the interval ran forever.
+			stopPolling()
 			selectedJob.value = null
 			events.value = []
 		}
 		await fetchJobs()
+		deleteTarget.value = null
+	} catch (e: any) {
+		// Previously the finally closed the dialog regardless, so a failed
+		// delete looked identical to a successful one.
+		deleteError.value = e === 'cancelled'
+			? 'Password confirmation was cancelled.'
+			: (e?.response?.data?.ocs?.meta?.message || 'Could not delete this backup.')
 	} finally {
 		actionLoading.value = null
-		deleteTarget.value = null
 	}
 }
 

@@ -44,7 +44,9 @@ const expiresLabel = computed(() =>
 				<span class="iz-section-title">Contact person</span>
 				<dl class="overview__kv">
 					<dt>Name</dt>
-					<dd :class="{ 'overview__unset': contactFullName === 'Not set' }">{{ contactFullName }}</dd>
+					<dd :class="{ 'overview__unset': contactFullName === 'Not set' }">
+						{{ contactFullName }}
+					</dd>
 
 					<dt>Email</dt>
 					<dd>
@@ -64,7 +66,9 @@ const expiresLabel = computed(() =>
 				<span class="iz-section-title">Organization settings</span>
 				<dl class="overview__kv">
 					<dt>Organization ID</dt>
-					<dd class="overview__mono">{{ org.id }}</dd>
+					<dd class="overview__mono">
+						{{ org.id }}
+					</dd>
 
 					<dt>Permissions</dt>
 					<dd class="overview__tags">
@@ -81,7 +85,9 @@ const expiresLabel = computed(() =>
 			<section class="overview__block">
 				<span class="iz-section-title">Storage quotas</span>
 				<!-- The old UI rendered the literal string 'Loading...' in the value slot. -->
-				<p v-if="loading && !org.plan" class="iz-state">Loading quotas…</p>
+				<p v-if="loading && !org.plan" class="iz-state">
+					Loading quotas…
+				</p>
 				<dl v-else class="overview__kv">
 					<dt>Shared / project</dt>
 					<dd>{{ formatFileSize(org.plan?.sharedStoragePerProject) }}</dd>
@@ -93,7 +99,9 @@ const expiresLabel = computed(() =>
 		</div>
 
 		<div class="overview__actions">
-			<button class="iz-btn iz-btn--sm" type="button" @click="$emit('edit')">Edit organization</button>
+			<button class="iz-btn iz-btn--sm" type="button" @click="$emit('edit')">
+				Edit organization
+			</button>
 		</div>
 	</div>
 </template>

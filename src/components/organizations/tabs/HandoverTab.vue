@@ -11,70 +11,58 @@
 				<div class="form-grid">
 					<div class="form-group">
 						<label for="source-member">Source member</label>
-						<NcSelect
+						<IzSelect v-model="form.sourceUserId"
 							input-id="source-member"
-							:label-outside="true"
-							:aria-label-combobox="'Source member'"
-								v-model="form.sourceUserId"
-								:options="memberOptions"
-								label="label"
-								:reduce="(opt) => opt.id"
-								placeholder="Select source member"
-								:disabled="loading" />
+							aria-label="Source member"
+							:options="memberOptions"
+							placeholder="Select source member"
+							:disabled="loading" />
 					</div>
 
 					<div class="form-group">
 						<label for="target-member">Target member</label>
-						<NcSelect
+						<IzSelect v-model="form.targetUserId"
 							input-id="target-member"
-							:label-outside="true"
-							:aria-label-combobox="'Target member'"
-								v-model="form.targetUserId"
-								:options="memberOptions"
-								label="label"
-								:reduce="(opt) => opt.id"
-								placeholder="Select target member"
-								:disabled="loading" />
+							aria-label="Target member"
+							:options="memberOptions"
+							placeholder="Select target member"
+							:disabled="loading" />
 					</div>
 				</div>
 
 				<div class="options-grid">
-					<NcCheckboxRadioSwitch
+					<IzSwitch v-model="form.removeSourceFromGroups"
 						type="switch"
-						v-model="form.removeSourceFromGroups"
 						:disabled="loading">
 						Remove source member from project groups
-					</NcCheckboxRadioSwitch>
+					</IzSwitch>
 
-					<NcCheckboxRadioSwitch
+					<IzSwitch v-model="form.remapDeckContent"
 						type="switch"
-						v-model="form.remapDeckContent"
 						:disabled="loading">
 						Remap Deck content (boards, cards)
-					</NcCheckboxRadioSwitch>
+					</IzSwitch>
 				</div>
 
 				<div class="form-actions">
-					<NcButton
-						type="tertiary"
+					<IzButton type="tertiary"
 						:disabled="!isFormValid || loading"
 						@click="runDryRun">
 						<template #icon>
-							<NcLoadingIcon v-if="loading" :size="20" />
+							<IzSpinner v-if="loading" :size="20" />
 							<Play v-else :size="20" />
 						</template>
 						Preview (Dry Run)
-					</NcButton>
-					<NcButton
-						type="primary"
+					</IzButton>
+					<IzButton type="primary"
 						:disabled="!isFormValid || loading"
 						@click="startTransfer">
 						<template #icon>
-							<NcLoadingIcon v-if="loading" :size="20" />
+							<IzSpinner v-if="loading" :size="20" />
 							<Play v-else :size="20" />
 						</template>
 						Start Transfer
-					</NcButton>
+					</IzButton>
 				</div>
 			</div>
 
@@ -82,19 +70,18 @@
 			<div class="handover-history section">
 				<div class="section-header">
 					<h3>Recent Jobs</h3>
-					<NcButton
-						type="tertiary"
-						@click="fetchJobs"
-						:disabled="loadingJobs">
+					<IzButton type="tertiary"
+						:disabled="loadingJobs"
+						@click="fetchJobs">
 						<template #icon>
 							<Refresh :class="{ 'spinning': loadingJobs }" :size="18" />
 						</template>
 						Refresh
-					</NcButton>
+					</IzButton>
 				</div>
 
 				<div v-if="loadingJobs && jobs.length === 0" class="loading-state">
-					<NcLoadingIcon :size="48" />
+					<IzSpinner :size="48" />
 					<p>Loading jobs...</p>
 				</div>
 
@@ -115,7 +102,10 @@
 							</tr>
 						</thead>
 						<tbody>
-							<tr v-for="job in jobs" :key="job.jobId" class="job-row" @click="viewJobDetails(job)">
+							<tr v-for="job in jobs"
+								:key="job.jobId"
+								class="job-row"
+								@click="viewJobDetails(job)">
 								<td>
 									<div :class="['status-badge', job.status]">
 										{{ job.status }}
@@ -133,26 +123,24 @@
 									<span v-else class="type-tag real">Real</span>
 								</td>
 								<td>
-									<NcDateTime :timestamp="new Date(job.createdAt).getTime()" />
+									<IzDateTime :timestamp="new Date(job.createdAt).getTime()" />
 								</td>
 								<td class="actions-cell">
-									<NcButton
-										v-if="job.status === 'failed'"
+									<IzButton v-if="job.status === 'failed'"
 										type="tertiary"
 										title="Retry"
 										@click.stop="retryJob(job)">
 										<template #icon>
 											<Refresh :size="18" />
 										</template>
-									</NcButton>
-									<NcButton
-										type="tertiary"
+									</IzButton>
+									<IzButton type="tertiary"
 										title="View Details"
 										@click.stop="viewJobDetails(job)">
 										<template #icon>
 											<Information :size="18" />
 										</template>
-									</NcButton>
+									</IzButton>
 								</td>
 							</tr>
 						</tbody>
@@ -164,12 +152,12 @@
 		<!-- Job Details View -->
 		<div v-else class="job-details">
 			<div class="details-header">
-				<NcButton type="tertiary" @click="selectedJob = null">
+				<IzButton type="tertiary" @click="selectedJob = null">
 					<template #icon>
 						<ChevronLeft :size="20" />
 					</template>
 					Back to list
-				</NcButton>
+				</IzButton>
 				<h2>Job #{{ selectedJob.jobId }} Details</h2>
 				<div :class="['status-badge', selectedJob.status]">
 					{{ selectedJob.status }}
@@ -203,15 +191,15 @@
 						</div>
 						<div class="info-item">
 							<span class="label">Created:</span>
-							<span class="value"><NcDateTime :timestamp="new Date(selectedJob.createdAt).getTime()" /></span>
+							<span class="value"><IzDateTime :timestamp="new Date(selectedJob.createdAt).getTime()" /></span>
 						</div>
 						<div v-if="selectedJob.startedAt" class="info-item">
 							<span class="label">Started:</span>
-							<span class="value"><NcDateTime :timestamp="new Date(selectedJob.startedAt).getTime()" /></span>
+							<span class="value"><IzDateTime :timestamp="new Date(selectedJob.startedAt).getTime()" /></span>
 						</div>
 						<div v-if="selectedJob.finishedAt" class="info-item">
 							<span class="label">Finished:</span>
-							<span class="value"><NcDateTime :timestamp="new Date(selectedJob.finishedAt).getTime()" /></span>
+							<span class="value"><IzDateTime :timestamp="new Date(selectedJob.finishedAt).getTime()" /></span>
 						</div>
 					</div>
 
@@ -221,12 +209,11 @@
 							<strong>Error:</strong>
 							<p>{{ selectedJob.errorMessage }}</p>
 						</div>
-						<NcButton
-							v-if="selectedJob.status === 'failed'"
+						<IzButton v-if="selectedJob.status === 'failed'"
 							type="primary"
 							@click="retryJob(selectedJob)">
 							Retry Failed Steps
-						</NcButton>
+						</IzButton>
 					</div>
 				</div>
 
@@ -255,55 +242,72 @@
 				<!-- Steps Card -->
 				<div class="details-card steps">
 					<h3>Execution Steps</h3>
-						<div class="steps-list">
-							<div v-for="step in selectedJob.steps" :key="step.id" class="step-item">
-								<div class="step-icon">
-									<NcLoadingIcon v-if="step.status === 'running'" :size="20" />
-									<CheckCircle v-else-if="step.status === 'completed'" :size="20" class="success" />
-									<Information v-else-if="step.status === 'skipped'" :size="20" class="skipped" />
-									<CloseCircle v-else-if="step.status === 'failed'" :size="20" class="error" />
-									<Timer v-else :size="20" class="pending" />
+					<div class="steps-list">
+						<div v-for="step in selectedJob.steps" :key="step.id" class="step-item">
+							<div class="step-icon">
+								<IzSpinner v-if="step.status === 'running'" :size="20" />
+								<CheckCircle v-else-if="step.status === 'completed'" :size="20" class="success" />
+								<Information v-else-if="step.status === 'skipped'" :size="20" class="skipped" />
+								<CloseCircle v-else-if="step.status === 'failed'" :size="20" class="error" />
+								<Timer v-else :size="20" class="pending" />
+							</div>
+							<div class="step-info">
+								<div class="step-name">
+									{{ formatStepName(step.stepKey) }}
 								</div>
-								<div class="step-info">
-									<div class="step-name">{{ formatStepName(step.stepKey) }}</div>
-									<div class="step-meta">
-										<span class="status">{{ step.status }}</span>
-										<span v-if="step.attempt > 1" class="attempt">• Attempt {{ step.attempt }}</span>
-									</div>
-									<div v-if="step.result?.warning" class="step-warning">{{ step.result.warning }}</div>
-									<div v-if="step.errorMessage" class="step-error">{{ step.errorMessage }}</div>
-									<details v-if="step.result" class="step-details">
-										<summary>Details</summary>
-										<pre>{{ formatJson(step.result) }}</pre>
-									</details>
+								<div class="step-meta">
+									<span class="status">{{ step.status }}</span>
+									<span v-if="step.attempt > 1" class="attempt">• Attempt {{ step.attempt }}</span>
 								</div>
+								<div v-if="step.result?.warning" class="step-warning">
+									{{ step.result.warning }}
+								</div>
+								<div v-if="step.errorMessage" class="step-error">
+									{{ step.errorMessage }}
+								</div>
+								<details v-if="step.result" class="step-details">
+									<summary>Details</summary>
+									<pre>{{ formatJson(step.result) }}</pre>
+								</details>
 							</div>
 						</div>
 					</div>
+				</div>
 
 				<!-- Events Card -->
 				<div class="details-card events">
 					<div class="card-header">
 						<h3>Activity Log</h3>
-						<NcButton type="tertiary" @click="fetchEvents(selectedJob.jobId)">
+						<IzButton type="tertiary" @click="fetchEvents(selectedJob.jobId)">
 							<template #icon>
 								<Refresh :size="16" />
 							</template>
-						</NcButton>
+						</IzButton>
 					</div>
-					<div class="events-stream" ref="eventsStream">
+					<div ref="eventsStream" class="events-stream">
 						<div v-if="loadingEvents" class="events-loading">
-							<NcLoadingIcon :size="24" />
+							<IzSpinner :size="24" />
 						</div>
 						<div v-else-if="events.length === 0" class="events-empty">
 							No events logged yet.
 						</div>
-						<div v-else v-for="event in events" :key="event.id" :class="['event-item', event.level]">
-							<div class="event-time">{{ formatTime(event.createdAt) }}</div>
-							<div class="event-message">{{ event.message }}</div>
-							<div v-if="event.stepKey" class="event-meta">Step: {{ formatStepName(event.stepKey) }}</div>
+						<div v-for="event in events"
+							v-else
+							:key="event.id"
+							:class="['event-item', event.level]">
+							<div class="event-time">
+								{{ formatTime(event.createdAt) }}
+							</div>
+							<div class="event-message">
+								{{ event.message }}
+							</div>
+							<div v-if="event.stepKey" class="event-meta">
+								Step: {{ formatStepName(event.stepKey) }}
+							</div>
 							<div v-if="event.payload" class="event-payload">
-								<div class="event-summary">{{ formatPayloadSummary(event.payload) }}</div>
+								<div class="event-summary">
+									{{ formatPayloadSummary(event.payload) }}
+								</div>
 								<details class="event-details">
 									<summary>Payload</summary>
 									<pre>{{ formatJson(event.payload) }}</pre>
@@ -318,14 +322,12 @@
 </template>
 
 <script setup lang="ts">
+import IzSelect from '../../ui/IzSelect.vue'
+import IzButton from '../../ui/IzButton.vue'
+import IzSwitch from '../../ui/IzSwitch.vue'
+import IzDateTime from '../../ui/IzDateTime.vue'
+import IzSpinner from '../../ui/IzSpinner.vue'
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import {
-	NcButton,
-	NcLoadingIcon,
-	NcCheckboxRadioSwitch,
-	NcSelect,
-	NcDateTime,
-} from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateOcsUrl } from '@nextcloud/router'
 
@@ -369,9 +371,9 @@ const memberOptions = computed(() => {
 })
 
 const isFormValid = computed(() => {
-	return !!(form.value.sourceUserId &&
-		form.value.targetUserId &&
-		form.value.sourceUserId !== form.value.targetUserId)
+	return !!(form.value.sourceUserId
+		&& form.value.targetUserId
+		&& form.value.sourceUserId !== form.value.targetUserId)
 })
 
 const fetchJobs = async () => {
@@ -379,7 +381,7 @@ const fetchJobs = async () => {
 	loadingJobs.value = true
 	try {
 		const response = await axios.get(
-			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs`)
+			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs`),
 		)
 		jobs.value = response.data.ocs.data.jobs || []
 	} catch (error) {
@@ -391,7 +393,7 @@ const fetchJobs = async () => {
 
 const fetchJob = async (jobId: number) => {
 	const response = await axios.get(
-		generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}`)
+		generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}`),
 	)
 	return response.data.ocs.data
 }
@@ -400,7 +402,7 @@ const fetchEvents = async (jobId: number) => {
 	loadingEvents.value = true
 	try {
 		const response = await axios.get(
-			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}/events`)
+			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}/events`),
 		)
 		events.value = response.data.ocs.data.events || []
 	} catch (error) {
@@ -430,7 +432,7 @@ const startHandover = async (dryRun: boolean) => {
 				headers: {
 					'Idempotency-Key': idempotencyKey,
 				},
-			}
+			},
 		)
 
 		await fetchJobs()
@@ -461,7 +463,7 @@ const retryJob = async (job: any) => {
 	loading.value = true
 	try {
 		const response = await axios.post(
-			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${job.jobId}/retry`)
+			generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${job.jobId}/retry`),
 		)
 		await fetchJobs()
 		if (selectedJob.value?.jobId === job.jobId) {
@@ -508,7 +510,7 @@ const startPolling = (jobId: number) => {
 
 		try {
 			const response = await axios.get(
-				generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}`)
+				generateOcsUrl(`apps/organization/organizations/${props.organization.id}/handover/jobs/${jobId}`),
 			)
 			selectedJob.value = response.data.ocs.data
 			await fetchEvents(jobId)

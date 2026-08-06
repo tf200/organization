@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace OCA\Organization\Controller;
 
-use OCA\Organization\Db\UserMapper;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\NotFoundResponse;
@@ -23,7 +22,6 @@ class PageController extends Controller {
         private IInitialState $initialState,
         private IUserSession $userSession,
         private IGroupManager $groupManager,
-        private UserMapper $userMapper,
     ) {
         parent::__construct($appName, $request);
     }
@@ -36,22 +34,17 @@ class PageController extends Controller {
             return new NotFoundResponse();
         }
 
-        $userId = $user->getUID();
-        $isGlobalAdmin = $this->groupManager->isAdmin($userId);
-        $membership = $this->userMapper->getOrganizationMembership($userId);
-        $isOrganizationAdmin = $membership !== null && $membership['role'] === 'admin';
-
-        if (!$isGlobalAdmin && !$isOrganizationAdmin) {
+        // Superadmin only. This app is the administration surface that sits
+        // alongside superadminpage, and both the Plans and Trial-defaults
+        // controllers are Nextcloud-admin-only at the HTTP layer anyway — an
+        // organization admin who reached this page got two tabs that could
+        // only ever answer "Logged in account must be an admin".
+        if (!$this->groupManager->isAdmin($user->getUID())) {
             return new NotFoundResponse();
         }
 
         $this->initialState->provideInitialState('settings', [
             'appId' => $this->appName,
-            'permissions' => [
-                'isGlobalAdmin' => $isGlobalAdmin,
-                'isOrganizationAdmin' => $isOrganizationAdmin,
-                'organizationId' => $membership['organization_id'] ?? null,
-            ],
         ]);
 
         Util::addScript($this->appName, 'organization-main');

@@ -10,10 +10,19 @@ import { useAsync } from '../../composables/useAsync'
 import type { Member, Organization } from '../../types'
 
 const props = defineProps<{ org: Organization }>()
+/**
+ * `edit` and `convert` carry the *fetched* record, not the list row.
+ *
+ * GET /organizations omits the four contact fields entirely — only
+ * GET /organizations/{id} returns them. The panel used to hand the list row
+ * straight to EditOrgModal, which prefilled `contactFirstName || ''` from a
+ * property that was never there and then PUT the empty strings back, so
+ * renaming an organization silently erased its contact person.
+ */
 const emit = defineEmits<{
 	patch: [Partial<Organization>]
-	edit: []
-	convert: []
+	edit: [Organization]
+	convert: [Organization]
 	changed: []
 }>()
 
@@ -90,7 +99,7 @@ const tabs = computed(() => [
 			<OverviewTab v-if="activeTab === 'overview'"
 				:org="full"
 				:loading="detail.pending.value"
-				@edit="emit('edit')" />
+				@edit="emit('edit', full)" />
 
 			<MembersTab v-else-if="activeTab === 'members'"
 				:org="full"
@@ -99,7 +108,7 @@ const tabs = computed(() => [
 
 			<SubscriptionTab v-else-if="activeTab === 'subscription'"
 				:org="full"
-				@convert="emit('convert')" />
+				@convert="emit('convert', full)" />
 
 			<BackupsTab v-else-if="activeTab === 'backups'"
 				:org="full" />

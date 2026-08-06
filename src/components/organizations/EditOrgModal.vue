@@ -81,6 +81,9 @@
 		</div>
 
 		<template #footer>
+			<div v-if="saveError" class="iz-error edit-org-modal__error" role="alert">
+				{{ saveError }}
+			</div>
 			<IzButton type="tertiary" @click="closeModal">
 				Cancel
 			</IzButton>
@@ -103,8 +106,7 @@ import IzTextField from '../ui/IzTextField.vue'
 import IzButton from '../ui/IzButton.vue'
 import IzSpinner from '../ui/IzSpinner.vue'
 import { ref, reactive, watch } from 'vue'
-import axios from '@nextcloud/axios'
-import { generateOcsUrl } from '@nextcloud/router'
+import { ocs } from '../../lib/api'
 
 import OfficeBuilding from 'vue-material-design-icons/OfficeBuilding.vue'
 import CardAccountDetails from 'vue-material-design-icons/CardAccountDetails.vue'
@@ -121,6 +123,7 @@ const props = defineProps<{
 const emit = defineEmits(['close', 'saved'])
 
 const saving = ref(false)
+const saveError = ref('')
 const errors = reactive({
 	displayname: '',
 })
@@ -160,15 +163,18 @@ const handleSave = async () => {
 	if (!props.organization) return
 
 	saving.value = true
+	saveError.value = ''
 	try {
-		const response = await axios.put(
-			generateOcsUrl(`apps/organization/organizations/${props.organization.id}`),
-			{ ...form },
+		const data = await ocs<{ organization: Record<string, unknown> }>(
+			`organizations/${props.organization.id}`,
+			{ method: 'PUT', body: { ...form } },
 		)
-		emit('saved', response.data.ocs.data.organization)
+		emit('saved', data?.organization)
 		closeModal()
-	} catch (error) {
-		console.error('Failed to update organization', error)
+	} catch (e) {
+		// Previously console.error only, so a rejected save left the modal
+		// sitting there with the spinner stopped and no reason given.
+		saveError.value = e instanceof Error ? e.message : String(e)
 	} finally {
 		saving.value = false
 	}
@@ -176,6 +182,12 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
+/* Layout only; .iz-error carries the chrome. */
+.edit-org-modal__error {
+	flex: 1;
+	margin-right: auto;
+}
+
 .org-avatar {
 	flex-shrink: 0;
 }

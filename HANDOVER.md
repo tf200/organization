@@ -25,7 +25,7 @@ Gates, all currently green:
 | Gate | Command | State |
 |---|---|---|
 | Types | `npx vue-tsc --noEmit` | **0** (was 56) |
-| Lint | `npx eslint src --ext .js,.vue,.ts` | 74 problems (was 440) |
+| Lint | `npx eslint src --ext .js,.vue,.ts` | 73 problems (was 440) |
 | Build | `npm run build` | green, **263 kB** (was 1,225 kB) |
 | PHP tests | see §2 | **19 passing** |
 
@@ -69,9 +69,9 @@ docker start master-nextcloud-1 master-proxy-1
 
 Data: orgs `Test` (id 1, standard, `admin2`, active to Jul 2027, 3 members) and
 `testorg` (id 2, trial, `testadmin`, expired Jul 2026, 2 members); 2 plans, both
-private, both €0; 14 backup jobs; 3 handover jobs, all dry runs;
-**0 rollback jobs**; `oc_appconfig` has no `organization` rows, so every trial
-setting is a service default.
+private, both €0; 14 backup jobs; 4 handover jobs, all dry runs;
+**1 rollback job** (a completed dry run against backup #23); `oc_appconfig` has
+no `trial_*` rows, so every trial setting is a service default.
 
 ---
 
@@ -171,33 +171,58 @@ copy under `workspace/server/themes/`, and that cost half an hour here.
 
 ---
 
-## 6. Verified, and not
+## 6. Verified
 
-**Verified in the browser, both schemes**, by reading computed styles rather
-than screenshots: the three tabs, all five detail tabs, the org and plan lists,
-trial defaults, and all five modals opening, prefilling and cancelling.
+**Every write path has now been exercised against the live instance**, not just
+rendered. What was run, in order, and what it proved:
 
-**Also verified**, against the live rows rather than by eye: 7 backup jobs on
-org 1 (retention keeps 7 per org, so 14 across two), 4 steps each in order with
-their human names, 3 events; 3 handover jobs, 3 steps, 10 events across two
-levels, and the dry-run preview rendering as chips plus its warning.
+| Path | Result |
+|---|---|
+| Password confirmation | Prompt appears, accepts, request proceeds. First exercise of `PasswordConfirm.vue` since it replaced `@nextcloud/password-confirmation`. |
+| Dry-run rollback on an expired backup | Server refused — *"Source backup artifact has expired"* — and **the UI showed it**. Exactly the path that used to swallow errors. |
+| Create backup | Job created `queued`, auto-expanded, all four steps already seeded `queued`, indeterminate meter running. |
+| Worker run → poll | Status went queued → completed **live, without a reload**; steps flipped to completed, events grew 1 → 3, meter disappeared, Download enabled. |
+| Dry-run rollback on a fresh backup | Rollback #1: validation passed, 7 impact chips, 6 steps (3 completed / 3 skipped), 3 events. First real data through that whole panel. |
+| Delete backup | ConfirmDialog → password → soft delete. `status='deleted'`, artifact cleared, event logged. |
+| Handover dry run | Job created and ran synchronously; preview chips, warning, 3 steps with skip reasons, 10 events. |
+| Delete plan in use | Correctly **disabled**, with *"In use by 1 subscription — unassign before deleting."* next to it. Not a failed request — prevented. |
+| Remove + re-add member | Counts propagated everywhere (tab badge, seats pill, row header) and back. |
+| Edit organization | **Found and fixed a data-loss bug — see below.** |
+| Create organization | Client validation caught three empty required fields; full create produced org, admin user, plan and subscription. |
+| Org list filters | Search by name and by ID, type, status, the distinct no-match empty state, and Clear filters. |
+| Trial defaults | Saved, including the 100 MB → 104857600 byte conversion; `role="status"` confirmation shown. |
+| Convert trial | testorg went Trial/Expired → Standard/Active on the chosen plan; the list row updated in place. |
 
-**Not verified:** no form has actually been *submitted*. Creating an
-organization, converting `testorg`, saving trial defaults, deleting a plan or a
-backup — all the POST/PUT/DELETE paths are unexercised, because they mutate the
-dev instance. The "Start transfer" ConfirmDialog was opened and cancelled, not
-confirmed; a handover job cannot be deleted once created.
+**The bug edit-organization testing found.** `GET /organizations` does not return
+the four contact fields — only `GET /organizations/{id}` does. `OrgPanel` handed
+the *list row* to `EditOrgModal`, which prefilled `contactFirstName || ''` from a
+property that was never there and then PUT the empty strings back. So renaming an
+organization silently erased its contact person. `OrgDetail` now emits the fetched
+record with `edit` and `convert`. Verified: with only the phone changed, the other
+three fields survived the save. The same modal also swallowed save failures into
+`console.error`; it surfaces them now.
 
-**Rollback rendering is structurally verified only.** This instance has **0
-rollback jobs**, so the expandable rollback row, its validation block, its
-impact chips and its new events timeline have never had real data through them.
-Seed one — a dry run against backup #21 or #22, the only completed full backups
-— before trusting that path.
+**Not done deliberately:** the rollback **Apply** button was never clicked. It is
+live and would perform a real, irreversible restore.
+
+**State left behind**, after restoring orgs, members, plans, subscriptions, users
+and appconfig to their exact pre-test values:
+
+- Backup #23 — a real completed backup, kept because rollback #1 references it.
+- Rollback #1 — the seeded dry run.
+- Handover job #4 — a dry run. No delete endpoint exists for handover jobs.
+- Backup #11 is now `deleted`, and #9 was purged by the app's own 7-job retention
+  when #23 was created.
 
 **Known, not this app's bug:** `adminpage`'s `/api/backup-jobs` still 500s. It
 does a server-to-server loopback to `getAbsoluteURL()`, which builds a portless
 URL from `overwrite.cli.url`, and forwards the browser `Cookie` header. The
 original handover claimed landing this branch would fix it. It does not.
+
+**Two smaller things noticed and left:** the plan list behind the create/convert
+modals is fetched only on mount, so a plan created by a new organization does not
+appear in the convert picker until reload; and a soft-deleted backup stays in the
+list showing "Deleted", which is the server's model rather than a UI choice.
 
 ---
 

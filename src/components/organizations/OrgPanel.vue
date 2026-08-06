@@ -187,8 +187,8 @@ defineExpose({ reload: () => list.run() })
 					@toggle="toggle(org.id)">
 					<OrgDetail :org="org"
 						@patch="patch(org.id, $event)"
-						@edit="editTarget = org"
-						@convert="convertTarget = org"
+						@edit="editTarget = $event"
+						@convert="convertTarget = $event"
 						@changed="list.run()" />
 				</OrgRow>
 			</div>

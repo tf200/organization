@@ -626,8 +626,8 @@ onBeforeUnmount(() => {
 							     collapsed row has no steps to measure against. The honest
 							     progress readout is the step list in the detail. -->
 							<div v-if="isActive(row.status)" class="backups__progress" aria-hidden="true">
-								<div class="iz-meter iz-meter--thin">
-									<div class="iz-meter__fill iz-meter__fill--accent backups__pulse" />
+								<div class="iz-meter iz-meter--thin iz-meter--indeterminate">
+									<div class="iz-meter__fill iz-meter__fill--accent" />
 								</div>
 							</div>
 
@@ -695,71 +695,71 @@ onBeforeUnmount(() => {
 									</ul>
 								</div>
 
-								<dl class="backups__kv">
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+								<dl class="iz-kv">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Type
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ backupTypeLabel(job.backupType) }}
 											<template v-if="job.baseFullJobId">
 												· based on #{{ job.baseFullJobId }}
 											</template>
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Trigger
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ triggerLabel(job.triggerSource) }}
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Created
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatDateTime(job.createdAt) }}
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Finished
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatDateTime(job.finishedAt) }}
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Expires
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatDateTime(job.expiresAt) }}
 										</dd>
 									</div>
-									<div v-if="job.artifactSize" class="backups__kv-item">
-										<dt class="iz-label">
+									<div v-if="job.artifactSize" class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Archive size
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatFileSize(job.artifactSize) }}
 										</dd>
 									</div>
-									<div v-if="job.artifactName" class="backups__kv-item backups__kv-item--wide">
-										<dt class="iz-label">
+									<div v-if="job.artifactName" class="iz-kv__item iz-kv__item--wide">
+										<dt class="iz-kv__label">
 											Archive
 										</dt>
-										<dd class="backups__kv-value backups__mono">
+										<dd class="iz-kv__value iz-kv__value--mono">
 											{{ job.artifactName }}
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Requested by
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ job.requestedByUid === '__system__' ? 'Scheduler' : job.requestedByUid }}
 										</dd>
 									</div>
@@ -835,8 +835,8 @@ onBeforeUnmount(() => {
 							</div>
 
 							<div v-if="isActive(row.status)" class="backups__progress" aria-hidden="true">
-								<div class="iz-meter iz-meter--thin">
-									<div class="iz-meter__fill iz-meter__fill--accent backups__pulse" />
+								<div class="iz-meter iz-meter--thin iz-meter--indeterminate">
+									<div class="iz-meter__fill iz-meter__fill--accent" />
 								</div>
 							</div>
 
@@ -902,52 +902,52 @@ onBeforeUnmount(() => {
 									</div>
 								</div>
 
-								<dl class="backups__kv">
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+								<dl class="iz-kv">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Mode
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ rollback.mode === 'apply' ? 'Apply' : 'Dry run' }}
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Source backup
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											#{{ rollback.sourceBackupJobId }}
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Created
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatDateTime(rollback.createdAt) }}
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Finished
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatDateTime(rollback.finishedAt) }}
 										</dd>
 									</div>
-									<div v-if="rollback.preRestoreBackupJobId" class="backups__kv-item">
-										<dt class="iz-label">
+									<div v-if="rollback.preRestoreBackupJobId" class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Safety snapshot
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											Backup #{{ rollback.preRestoreBackupJobId }}
 										</dd>
 									</div>
-									<div class="backups__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Requested by
 										</dt>
-										<dd class="backups__kv-value">
+										<dd class="iz-kv__value">
 											{{ rollback.requestedByUid }}
 										</dd>
 									</div>
@@ -1070,42 +1070,6 @@ onBeforeUnmount(() => {
 	gap: var(--iz-gap);
 }
 
-/* Stacked label-over-value pairs. The theme has no key-value primitive — the
-   chrome here is .iz-label, and only the tracks are local. */
-.backups__kv {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-	gap: 12px;
-	margin: 0;
-}
-
-.backups__kv-item {
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.backups__kv-item--wide {
-	grid-column: 1 / -1;
-}
-
-/* .iz-label carries a 6px margin meant for a form field; inside a pair the
-   value sits directly under its label. Qualified to (0,3,0), see above. */
-.backups__kv .iz-label {
-	margin-bottom: 2px;
-}
-
-.backups__kv-value {
-	margin: 0;
-	font-size: var(--iz-fs-md);
-	overflow-wrap: anywhere;
-}
-
-.backups__mono {
-	font-family: var(--iz-font-mono);
-	font-size: var(--iz-fs-sm);
-}
-
 .backups__section {
 	display: flex;
 	flex-direction: column;
@@ -1129,23 +1093,6 @@ onBeforeUnmount(() => {
 	flex-direction: column;
 	gap: 10px;
 	align-items: flex-start;
-}
-
-/* The theme's meter is determinate; a queued or running job has no percentage
-   to report from a collapsed row, so the track pulses instead of lying about
-   one. The step list in the detail is the real readout. */
-.backups__pulse {
-	width: 100%;
-	animation: backups-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes backups-pulse {
-	0%, 100% { opacity: 0.25; }
-	50% { opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.backups__pulse { animation: none; opacity: 0.6; }
 }
 
 @media (max-width: 700px) {

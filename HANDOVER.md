@@ -88,26 +88,41 @@ sets.** Reach (0,3,0) rather than relying on the cascade order:
 Two visible bugs came from not doing this — filters stacking one per row, and a
 storage input collapsing to 26px.
 
-An earlier version of this section explained it as *"the app's CSS loads before
-the theme, so on a tie the theme wins — the inverse of `USING-THE-THEME.md`
-§4."* **Measured again, that is not the whole picture,** so do not reason from
-it. What the browser actually reports:
+**Why:** this app's CSS loads *before* the theme, so `USING-THE-THEME.md` §4 —
+*"on a tie the app wins"* — **is inverted here.** At equal specificity the theme
+wins. A bare `.my-class { width: auto }` in a scoped block ties
+`.iz-app .iz-input` at (0,2,0) and loses. The three sibling apps use webpack,
+which injects styles at runtime so theirs always land last.
 
-| index | sheet |
-|---|---|
-| 1 | `css/organization-main.css` — the linked file, and it is **0.08 kB** |
-| 4 | the theme's `server.css` |
-| 15+ | ~80 inline `<style>` blocks — the component CSS, injected at runtime |
+The reason this is easy to get wrong — and it was got wrong once, in this file:
 
-Vite code-splits the component CSS into `css/main-*.chunk.css`, which the
-bundle injects as `<style>` elements *after* everything linked. So scoped
-component rules land last and do win a tie, as in the webpack siblings; it is
-only the near-empty linked file that precedes the theme. The unscoped
-`src/styles/iz-app.scss` is the case to watch, since its rules carry no
-`[data-v-…]` and are a specificity class lower to begin with.
+```
+stylesheet 1   css/organization-main.css     ← 79 bytes
+stylesheet 4   themes/inzicht/…/server.css
+```
 
-Either way the parent qualifier wins, which is why it is the rule and the
-cascade order is not worth relying on.
+`organization-main.css` looks empty enough to dismiss. It is not: it is a shim
+whose entire contents are `@import './main-<hash>.chunk.css'`, and an
+`@import` resolves **in place**, so all 14 kB of component CSS inherits
+position 1. Reading the file sizes and concluding the app's real CSS lands
+somewhere later is wrong. Check `document.styleSheets[1].cssRules`.
+
+That content hash changes on every build, which also makes cache-busting
+fiddly: `fetch`ing `organization-main.css` alone leaves the browser importing
+the **previous** chunk, which is still on disk because `css/` is never pruned.
+The symptom is a page where theme primitives look right and every local class
+is dead — the scoped `data-v-…` hash in the stale chunk no longer matches the
+DOM. Bust the chunk by name too:
+
+```js
+for (const u of ['/themes/inzicht/core/css/server.css',
+                 '/apps-shared/organization/css/organization-main.css',
+                 '/apps-shared/organization/css/main-<hash>.chunk.css',
+                 '/apps-shared/organization/js/organization-main.mjs']) {
+  await fetch(u, { cache: 'reload' })
+}
+location.reload()
+```
 
 Everything else in `USING-THE-THEME.md` applies as written. Read it, including
 the new §12 on what the theme still does not provide.
@@ -140,12 +155,19 @@ Two of the four agreed additions landed here rather than earlier: **backup step
 names** and the **rollback events timeline** (`GET /rollback-jobs/{id}` and its
 `/events` had never been called).
 
-The theme gained `--iz-font-mono` (twelve hand-written copies in three forms
-across the four apps) and a new §12 listing the three shapes every consumer
-still hand-rolls: the key-value detail grid, the step list and an indeterminate
-meter. **Deploying the theme is a step**: `./deploy-docker.sh
-master-nextcloud-1` from the theme repo. Editing the repo alone changes
-nothing — the container serves a copy, and that cost half an hour here.
+**The theme gained five primitives**, because the detail panels were mostly
+unstyled without them: `.iz-kv` (with a `--rows` variant), `.iz-steps`,
+`.iz-log`, `.iz-code` and `.iz-meter--indeterminate`, plus the `--iz-font-mono`
+token. `.iz-kv` earns its place twice over — besides four hand-rolled copies
+across the apps, Nextcloud core ships `dt, dd { display: inline-block;
+padding: 12px }` and `dt { width: 130px; text-align: end }` globally, so *every*
+`<dl>` in *every* one of these apps has been rendering its labels right-aligned
+in a 130px gutter. A two-line pair measured 104px tall before and 36px after.
+`OverviewTab` was hit by this too and is now on `.iz-kv--rows`.
+
+**Deploying the theme is a step**: `./deploy-docker.sh master-nextcloud-1` from
+the theme repo. Editing the repo alone changes nothing — the container serves a
+copy under `workspace/server/themes/`, and that cost half an hour here.
 
 ---
 

@@ -538,60 +538,60 @@ watch(jobsOffset, async () => {
 									</ul>
 								</div>
 
-								<dl class="handover__kv">
-									<div class="handover__kv-item">
-										<dt class="iz-label">
+								<dl class="iz-kv">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Source
 										</dt>
-										<dd class="handover__kv-value handover__mono">
+										<dd class="iz-kv__value iz-kv__value--mono">
 											{{ job.sourceUserId }}
 										</dd>
 									</div>
-									<div class="handover__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Target
 										</dt>
-										<dd class="handover__kv-value handover__mono">
+										<dd class="iz-kv__value iz-kv__value--mono">
 											{{ job.targetUserId }}
 										</dd>
 									</div>
-									<div class="handover__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Requested by
 										</dt>
-										<dd class="handover__kv-value">
+										<dd class="iz-kv__value">
 											{{ job.requestedByUserId }}
 										</dd>
 									</div>
-									<div class="handover__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Attempt
 										</dt>
-										<dd class="handover__kv-value">
+										<dd class="iz-kv__value">
 											{{ job.attempt }}
 										</dd>
 									</div>
-									<div class="handover__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Created
 										</dt>
-										<dd class="handover__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatDateTime(job.createdAt) }}
 										</dd>
 									</div>
-									<div class="handover__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Started
 										</dt>
-										<dd class="handover__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatDateTime(job.startedAt) }}
 										</dd>
 									</div>
-									<div class="handover__kv-item">
-										<dt class="iz-label">
+									<div class="iz-kv__item">
+										<dt class="iz-kv__label">
 											Finished
 										</dt>
-										<dd class="handover__kv-value">
+										<dd class="iz-kv__value">
 											{{ formatDateTime(job.finishedAt) }}
 										</dd>
 									</div>
@@ -628,7 +628,7 @@ watch(jobsOffset, async () => {
 
 								<details v-if="job.result" class="handover__raw">
 									<summary>Raw result</summary>
-									<pre>{{ rawResult(job.result) }}</pre>
+									<pre class="iz-code">{{ rawResult(job.result) }}</pre>
 								</details>
 							</template>
 						</div>
@@ -754,39 +754,6 @@ watch(jobsOffset, async () => {
 	gap: var(--iz-gap);
 }
 
-/* Stacked label-over-value pairs. The theme has no key-value primitive — the
-   chrome is .iz-label and only the tracks are local. */
-.handover__kv {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-	gap: 12px;
-	margin: 0;
-}
-
-.handover__kv-item {
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
-}
-
-/* .iz-label carries a 6px margin meant for a form field. Qualified on the
-   parent to reach (0,3,0): this app's stylesheet loads BEFORE the theme, so a
-   bare class would tie at (0,2,0) and lose. */
-.handover__kv .iz-label {
-	margin-bottom: 2px;
-}
-
-.handover__kv-value {
-	margin: 0;
-	font-size: var(--iz-fs-md);
-	overflow-wrap: anywhere;
-}
-
-.handover__mono {
-	font-family: var(--iz-font-mono);
-	font-size: var(--iz-fs-sm);
-}
-
 .handover__section {
 	display: flex;
 	flex-direction: column;
@@ -817,14 +784,4 @@ watch(jobsOffset, async () => {
 	cursor: pointer;
 }
 
-.handover__raw pre {
-	margin: 8px 0 0;
-	padding: 10px 12px;
-	max-height: 240px;
-	overflow: auto;
-	font-family: var(--iz-font-mono);
-	font-size: var(--iz-fs-sm);
-	background: var(--iz-surface-inset);
-	border-radius: var(--iz-radius-sm);
-}
 </style>

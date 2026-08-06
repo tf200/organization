@@ -42,36 +42,46 @@ const expiresLabel = computed(() =>
 		<div class="overview__grid">
 			<section class="iz-card overview__block">
 				<span class="iz-section-title">Contact person</span>
-				<dl class="overview__kv">
-					<dt>Name</dt>
-					<dd :class="{ 'overview__unset': contactFullName === 'Not set' }">
+				<dl class="iz-kv iz-kv--rows">
+					<dt class="iz-kv__label">
+						Name
+					</dt>
+					<dd class="iz-kv__value" :class="{ 'iz-kv__value--unset': contactFullName === 'Not set' }">
 						{{ contactFullName }}
 					</dd>
 
-					<dt>Email</dt>
-					<dd>
+					<dt class="iz-kv__label">
+						Email
+					</dt>
+					<dd class="iz-kv__value">
 						<a v-if="org.contactEmail" :href="`mailto:${org.contactEmail}`">{{ org.contactEmail }}</a>
-						<span v-else class="overview__unset">Not set</span>
+						<span v-else class="iz-kv__value--unset">Not set</span>
 					</dd>
 
-					<dt>Phone</dt>
-					<dd>
+					<dt class="iz-kv__label">
+						Phone
+					</dt>
+					<dd class="iz-kv__value">
 						<a v-if="org.contactPhone" :href="`tel:${org.contactPhone}`">{{ org.contactPhone }}</a>
-						<span v-else class="overview__unset">Not set</span>
+						<span v-else class="iz-kv__value--unset">Not set</span>
 					</dd>
 				</dl>
 			</section>
 
 			<section class="iz-card overview__block">
 				<span class="iz-section-title">Organization settings</span>
-				<dl class="overview__kv">
-					<dt>Organization ID</dt>
-					<dd class="overview__mono">
+				<dl class="iz-kv iz-kv--rows">
+					<dt class="iz-kv__label">
+						Organization ID
+					</dt>
+					<dd class="iz-kv__value iz-kv__value--mono">
 						{{ org.id }}
 					</dd>
 
-					<dt>Permissions</dt>
-					<dd class="overview__tags">
+					<dt class="iz-kv__label">
+						Permissions
+					</dt>
+					<dd class="iz-kv__value overview__tags">
 						<span class="iz-badge" :class="org.canAdd ? 'iz-badge--success' : 'iz-badge--danger'">
 							{{ org.canAdd ? 'Add users' : 'Cannot add users' }}
 						</span>
@@ -88,12 +98,20 @@ const expiresLabel = computed(() =>
 				<p v-if="loading && !org.plan" class="iz-state">
 					Loading quotas…
 				</p>
-				<dl v-else class="overview__kv">
-					<dt>Shared / project</dt>
-					<dd>{{ formatFileSize(org.plan?.sharedStoragePerProject) }}</dd>
+				<dl v-else class="iz-kv iz-kv--rows">
+					<dt class="iz-kv__label">
+						Shared / project
+					</dt>
+					<dd class="iz-kv__value">
+						{{ formatFileSize(org.plan?.sharedStoragePerProject) }}
+					</dd>
 
-					<dt>Private / user</dt>
-					<dd>{{ formatFileSize(org.plan?.privateStoragePerUser) }}</dd>
+					<dt class="iz-kv__label">
+						Private / user
+					</dt>
+					<dd class="iz-kv__value">
+						{{ formatFileSize(org.plan?.privateStoragePerUser) }}
+					</dd>
 				</dl>
 			</section>
 		</div>
@@ -128,34 +146,6 @@ const expiresLabel = computed(() =>
 .overview__block {
 	display: flex;
 	flex-direction: column;
-}
-
-.overview__kv {
-	display: grid;
-	grid-template-columns: minmax(90px, auto) 1fr;
-	gap: 6px 12px;
-	margin: 0;
-	font-size: var(--iz-fs-md);
-}
-
-.overview__kv dt {
-	color: var(--iz-text-secondary);
-}
-
-.overview__kv dd {
-	margin: 0;
-	min-width: 0;
-	overflow-wrap: anywhere;
-}
-
-.overview__unset {
-	color: var(--iz-text-muted);
-	font-style: italic;
-}
-
-.overview__mono {
-	font-family: var(--iz-font-mono);
-	font-size: var(--iz-fs-sm);
 }
 
 .overview__tags {

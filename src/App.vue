@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AppTabs from './components/AppTabs.vue'
+import OrgPanel from './components/organizations/OrgPanel.vue'
 import type { TabKey } from './types'
+
+const counts = ref<Partial<Record<TabKey, number>>>({})
 
 /* This app is superadmin-only — PageController rejects everyone else — so
    there is no permission branching, no mode chip and no conditional nav. */
@@ -19,13 +22,11 @@ onMounted(() => {
 
 <template>
 	<div class="org-dashboard iz-app">
-		<AppTabs v-model="activeTab" />
+		<AppTabs v-model="activeTab" :counts="counts" />
 
-		<section v-if="activeTab === 'organizations'" class="iz-panel">
-			<div class="iz-panel__header">
-				<h3 class="iz-panel__title">Organizations</h3>
-			</div>
-		</section>
+		<OrgPanel
+			v-if="activeTab === 'organizations'"
+			@count="counts.organizations = $event" />
 
 		<section v-else-if="activeTab === 'plans'" class="iz-panel">
 			<div class="iz-panel__header">

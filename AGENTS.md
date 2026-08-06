@@ -6,11 +6,11 @@ This document provides instructions for agentic coding tools operating on the `o
 The `organization` app manages multi-tenant entities, subscriptions, and plans.
 - **Namespace:** `OCA\Organization`
 - **Architecture:** MVC (Controllers -> Services -> Mappers -> Entities)
-- **Minimum Nextcloud Version:** 31
+- **Nextcloud Version:** min 31, max 34
 
 ## Build, Lint, and Test Commands
 
-Currently, this repository lacks a `composer.json`. Agents should assume the following standard Nextcloud commands are the target environment (and should help create the necessary configurations if missing):
+See `CLAUDE.md` for the authoritative guide — build commands, the theme, and this app's deltas from its three siblings. `composer.json` and `phpunit.xml` both exist; PHP tests run inside the container because `nextcloud/ocp` ships no autoload.
 
 ### Linting & Static Analysis
 - **Syntax Check:** `find lib -name "*.php" -exec php -l {} \;`

@@ -822,12 +822,12 @@ onBeforeUnmount(() => {
 
 .job-card:hover {
 	border-color: var(--color-primary-element-light);
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+	box-shadow: var(--iz-shadow);
 }
 
 .job-card.expanded {
 	border-color: var(--color-primary-element-light);
-	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+	box-shadow: var(--iz-shadow-lift);
 }
 
 /* ─── Job Summary Row ─── */

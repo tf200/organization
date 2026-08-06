@@ -916,7 +916,7 @@ watch(() => props.organization?.id, () => {
 .step-details pre {
 	margin: 8px 0 0 0;
 	padding: 8px;
-	background-color: rgba(0, 0, 0, 0.05);
+	background-color: var(--iz-surface-inset);
 	border-radius: 4px;
 	overflow-x: auto;
 }
@@ -952,9 +952,9 @@ watch(() => props.organization?.id, () => {
 	border-radius: 4px;
 }
 
-.event-item.info { color: var(--color-text-light); }
-.event-item.warning { background-color: rgba(255, 165, 0, 0.1); color: orange; }
-.event-item.error { background-color: var(--color-error-light); color: var(--color-error); }
+.event-item.info { color: var(--iz-text-secondary); }
+.event-item.warning { background-color: var(--iz-warning-bg); color: var(--iz-warning-text); }
+.event-item.error { background-color: var(--iz-danger-bg); color: var(--iz-danger-text); }
 
 .event-time {
 	flex-shrink: 0;
@@ -964,7 +964,7 @@ watch(() => props.organization?.id, () => {
 .event-payload {
 	margin-top: 4px;
 	padding: 8px;
-	background-color: rgba(0, 0, 0, 0.05);
+	background-color: var(--iz-surface-inset);
 	border-radius: 4px;
 	overflow-x: auto;
 }

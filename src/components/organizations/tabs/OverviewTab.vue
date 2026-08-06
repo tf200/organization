@@ -40,7 +40,7 @@ const expiresLabel = computed(() =>
 		</div>
 
 		<div class="overview__grid">
-			<section class="overview__block">
+			<section class="iz-card overview__block">
 				<span class="iz-section-title">Contact person</span>
 				<dl class="overview__kv">
 					<dt>Name</dt>
@@ -62,7 +62,7 @@ const expiresLabel = computed(() =>
 				</dl>
 			</section>
 
-			<section class="overview__block">
+			<section class="iz-card overview__block">
 				<span class="iz-section-title">Organization settings</span>
 				<dl class="overview__kv">
 					<dt>Organization ID</dt>
@@ -82,7 +82,7 @@ const expiresLabel = computed(() =>
 				</dl>
 			</section>
 
-			<section class="overview__block">
+			<section class="iz-card overview__block">
 				<span class="iz-section-title">Storage quotas</span>
 				<!-- The old UI rendered the literal string 'Loading...' in the value slot. -->
 				<p v-if="loading && !org.plan" class="iz-state">
@@ -124,12 +124,10 @@ const expiresLabel = computed(() =>
 	gap: var(--iz-gap);
 }
 
+/* Chrome from .iz-card; only the stacking direction is local. */
 .overview__block {
 	display: flex;
 	flex-direction: column;
-	padding: var(--iz-pad-card);
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius-lg);
 }
 
 .overview__kv {

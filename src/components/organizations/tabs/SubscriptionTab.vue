@@ -31,7 +31,7 @@ const isTrial = computed(() => props.org.type === 'trial')
 		</div>
 
 		<div class="subscription__grid">
-			<section class="subscription__block">
+			<section class="iz-card subscription__block">
 				<span class="iz-section-title">Subscription</span>
 				<dl class="subscription__kv">
 					<dt>Subscription ID</dt>
@@ -50,7 +50,7 @@ const isTrial = computed(() => props.org.type === 'trial')
 				</dl>
 			</section>
 
-			<section class="subscription__block">
+			<section class="iz-card subscription__block">
 				<span class="iz-section-title">Plan · {{ sub?.planName || 'Custom' }}</span>
 				<dl class="subscription__kv">
 					<dt>Max members</dt>
@@ -91,12 +91,10 @@ const isTrial = computed(() => props.org.type === 'trial')
 	gap: var(--iz-gap);
 }
 
+/* Chrome from .iz-card; only the stacking direction is local. */
 .subscription__block {
 	display: flex;
 	flex-direction: column;
-	padding: var(--iz-pad-card);
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius-lg);
 }
 
 .subscription__kv {

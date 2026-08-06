@@ -264,7 +264,9 @@ async function createAccount() {
 				No members yet.
 			</div>
 			<ul v-else class="members__list">
-				<li v-for="member in members" :key="member.uid" class="members__row">
+				<li v-for="member in members"
+					:key="member.uid"
+					class="iz-row iz-row--card members__row">
 					<span class="iz-identity__avatar iz-identity__avatar--sm" aria-hidden="true">
 						{{ (member.displayName || member.uid).charAt(0).toUpperCase() }}
 					</span>
@@ -331,26 +333,20 @@ async function createAccount() {
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Each row is its own .iz-row--card now, so the list is a plain stack.
+   Matches superadminpage/MembersPanel, whose .members-panel__card does the
+   same with a 10px gap. */
 .members__list {
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius-lg);
-	overflow: hidden;
-}
-
-.members__row {
 	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 10px 12px;
-	border-bottom: 1px solid var(--iz-border);
+	flex-direction: column;
+	gap: 10px;
 }
 
-.members__row:last-child {
-	border-bottom: 0;
-}
+/* Chrome from .iz-row--card. Nothing local: the theme already sets flex,
+   align-items, gap and --iz-pad-row. */
 
 .members__form {
 	display: flex;

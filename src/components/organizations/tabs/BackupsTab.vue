@@ -233,6 +233,10 @@
 					</Transition>
 				</div>
 			</TransitionGroup>
+			<Pagination v-model:offset="jobsOffset"
+				:limit="JOBS_PAGE"
+				:count="jobs.length"
+				label="backups" />
 		</template>
 
 		<div class="rollback-panel">
@@ -298,6 +302,10 @@
 					</div>
 				</div>
 			</div>
+			<Pagination v-model:offset="rollbackOffset"
+				:limit="ROLLBACK_PAGE"
+				:count="rollbackJobs.length"
+				label="rollback jobs" />
 		</div>
 
 		<ConfirmDialog v-if="deleteTarget"
@@ -315,6 +323,7 @@
 
 <script setup lang="ts">
 import ConfirmDialog from '../../ConfirmDialog.vue'
+import Pagination from '../../ui/Pagination.vue'
 import IzButton from '../../ui/IzButton.vue'
 import IzSpinner from '../../ui/IzSpinner.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
@@ -360,6 +369,14 @@ const selectedJob = ref<any | null>(null)
 const events = ref<any[]>([])
 const deleteTarget = ref<any | null>(null)
 const deleteError = ref('')
+
+/* Offset paging. The endpoints answer {jobs, limit, offset} with no total, so
+   the control infers "there is more" from a full page. Previously these were
+   hardcoded to offset 0, which made job 21 and older unreachable. */
+const JOBS_PAGE = 20
+const ROLLBACK_PAGE = 30
+const jobsOffset = ref(0)
+const rollbackOffset = ref(0)
 const selectedBackupType = ref<'full' | 'incremental'>('full')
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -465,12 +482,18 @@ function formatImpactKey(key: string): string {
 }
 
 async function fetchJobs() {
-	const { data } = await axios.get(jobsUrl(), { params: { limit: 20, offset: 0 } })
+	const { data } = await axios.get(jobsUrl(), { params: { limit: JOBS_PAGE, offset: jobsOffset.value } })
 	jobs.value = data?.ocs?.data?.jobs ?? []
+	// A page that empties after a delete should step back rather than strand
+	// the user on a blank page.
+	if (jobs.value.length === 0 && jobsOffset.value > 0) {
+		jobsOffset.value = Math.max(0, jobsOffset.value - JOBS_PAGE)
+		await fetchJobs()
+	}
 }
 
 async function fetchRollbackJobs() {
-	const { data } = await axios.get(rollbackJobsUrl(), { params: { limit: 30, offset: 0 } })
+	const { data } = await axios.get(rollbackJobsUrl(), { params: { limit: ROLLBACK_PAGE, offset: rollbackOffset.value } })
 	rollbackJobs.value = data?.ocs?.data?.jobs ?? []
 
 	const hasActive = rollbackJobs.value.some((job) => isActiveStatus(job.status))
@@ -480,6 +503,15 @@ async function fetchRollbackJobs() {
 		stopRollbackPolling()
 	}
 }
+
+watch(jobsOffset, () => {
+	// Collapse any open detail: its job may not be on the new page.
+	stopPolling()
+	selectedJob.value = null
+	events.value = []
+	fetchJobs()
+})
+watch(rollbackOffset, () => fetchRollbackJobs())
 
 async function fetchJob(jobId: number) {
 	const { data } = await axios.get(jobUrl(jobId))

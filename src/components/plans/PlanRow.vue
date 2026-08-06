@@ -103,7 +103,7 @@ async function confirmDelete() {
 			</div>
 
 			<div class="plan-row__grid">
-				<section class="plan-row__block">
+				<section class="iz-card plan-row__block">
 					<span class="iz-section-title">Storage quotas</span>
 					<dl class="plan-row__kv">
 						<dt>Shared / project</dt>
@@ -112,7 +112,7 @@ async function confirmDelete() {
 						<dd>{{ formatFileSize(plan.privateStoragePerUser) }}</dd>
 					</dl>
 				</section>
-				<section class="plan-row__block">
+				<section class="iz-card plan-row__block">
 					<span class="iz-section-title">Plan settings</span>
 					<dl class="plan-row__kv">
 						<dt>Plan ID</dt>
@@ -192,12 +192,10 @@ async function confirmDelete() {
 	margin-top: var(--iz-gap);
 }
 
+/* Chrome from .iz-card; only the stacking direction is local. */
 .plan-row__block {
 	display: flex;
 	flex-direction: column;
-	padding: var(--iz-pad-card);
-	border: 1px solid var(--iz-border);
-	border-radius: var(--iz-radius-lg);
 }
 
 .plan-row__kv {

@@ -11,10 +11,10 @@ done. Read `CLAUDE.md` first — it is short and it is the app's own guide.
 ## 1. Where things stand
 
 The app has been moved onto the In Zicht theme and the single-column dashboard
-shape. It works end to end. Branch **`taha`**, **12 commits ahead of
-`origin/taha`, nothing pushed**. The theme repo
-(`/home/payboy/src/inzicht-nextcloud-theme`) is **2 commits ahead of
-`origin/master`**, also unpushed.
+shape, and every component is now built from the theme's primitives. It works
+end to end. Branch **`taha`**, **14 commits ahead of `origin/taha`, nothing
+pushed**. The theme repo (`/home/payboy/src/inzicht-nextcloud-theme`) is
+**3 commits ahead of `origin/master`**, also unpushed.
 
 Shape: three page-level tabs (Organizations · Plans · Trial defaults), panels of
 expandable rows, detail opening in place with five tabs of its own
@@ -25,8 +25,8 @@ Gates, all currently green:
 | Gate | Command | State |
 |---|---|---|
 | Types | `npx vue-tsc --noEmit` | **0** (was 56) |
-| Lint | `npx eslint src --ext .js,.vue,.ts` | 100 problems (was 440) |
-| Build | `npm run build` | green, **274 kB** (was 1,225 kB) |
+| Lint | `npx eslint src --ext .js,.vue,.ts` | 74 problems (was 440) |
+| Build | `npm run build` | green, **263 kB** (was 1,225 kB) |
 | PHP tests | see §2 | **19 passing** |
 
 `@nextcloud/vue` and `@nextcloud/password-confirmation` are both gone from the
@@ -77,129 +77,75 @@ setting is a service default.
 
 ## 3. The one non-obvious thing — read before writing any CSS
 
-**This app's CSS loads *before* the theme.** `organization-main.css` is
-stylesheet index 1; the theme's `server.css` is index 4. The three sibling apps
-use webpack, which injects styles at runtime so they always land last.
-
-So `USING-THE-THEME.md` §4 — *"on a tie the app wins"* — **is inverted here.**
-At equal specificity the theme wins. A bare `.my-class { width: auto }` in a
-scoped block ties `.iz-app .iz-input` at (0,2,0) and loses.
-
-Qualify local overrides on a parent to reach (0,3,0):
+**Always parent-qualify a local rule that overrides a property a primitive also
+sets.** Reach (0,3,0) rather than relying on the cascade order:
 
 ```css
-/* loses */            .org-panel__search { width: auto; }
-/* wins  */            .org-panel__toolbar .org-panel__search { width: auto; }
+/* fragile */          .org-panel__search { width: auto; }
+/* safe    */          .org-panel__toolbar .org-panel__search { width: auto; }
 ```
 
-This already caused two visible bugs (filters stacking one per row, a storage
-input collapsing to 26px). Assume any override of a property a primitive also
-sets needs the parent qualifier.
+Two visible bugs came from not doing this — filters stacking one per row, and a
+storage input collapsing to 26px.
 
-Everything else in `USING-THE-THEME.md` applies as written. Read it.
+An earlier version of this section explained it as *"the app's CSS loads before
+the theme, so on a tie the theme wins — the inverse of `USING-THE-THEME.md`
+§4."* **Measured again, that is not the whole picture,** so do not reason from
+it. What the browser actually reports:
+
+| index | sheet |
+|---|---|
+| 1 | `css/organization-main.css` — the linked file, and it is **0.08 kB** |
+| 4 | the theme's `server.css` |
+| 15+ | ~80 inline `<style>` blocks — the component CSS, injected at runtime |
+
+Vite code-splits the component CSS into `css/main-*.chunk.css`, which the
+bundle injects as `<style>` elements *after* everything linked. So scoped
+component rules land last and do win a tie, as in the webpack siblings; it is
+only the near-empty linked file that precedes the theme. The unscoped
+`src/styles/iz-app.scss` is the case to watch, since its rules carry no
+`[data-v-…]` and are a specificity class lower to begin with.
+
+Either way the parent qualifier wins, which is why it is the rule and the
+cascade order is not worth relying on.
+
+Everything else in `USING-THE-THEME.md` applies as written. Read it, including
+the new §12 on what the theme still does not provide.
 
 ---
 
-## 4. Do these first, in this order
+## 4 & 5. Done
 
-### 4a. Cards — use `.iz-card`
+Sections 4 (cards, array rows, pagination) and 5 (the backups and handover
+tabs) are complete — commits `6b2868d` and `21853d0`. What they said to do,
+and what actually happened:
 
-`.iz-card` is used **0 times here and 16 times in `superadminpage`**. Six local
-blocks re-declare what it already provides (surface, 1px border, radius-lg,
-shadow, `--iz-pad-card`):
+- **Cards.** `.iz-card` went from 0 uses to 10. The seven local blocks each
+  re-declared border, radius and padding, and were consequently missing the
+  surface and shadow entirely.
+- **Array rows.** Member rows are `.iz-row--card`, matching `MembersPanel`.
+  They are deliberately **not** `--expandable`: they already sit inside an
+  expanded organization row, and a second nested disclosure reads badly. This
+  is the one place the app diverges from superadminpage on purpose.
+- **Pagination.** It had never been built. `src/components/ui/Pagination.vue`
+  now wraps `.iz-pagination`; `total` is optional because none of these
+  endpoints report one, so it infers "there is more" from a full page.
+  Exercised by temporarily setting the page size to 3 and paging org 1's jobs.
+- **Backups and handover.** 1,101 lines of local structural CSS became 407
+  across five files. `src/components/jobs/JobSteps.vue` and `JobEvents.vue`
+  are the shared timeline the plan asked for; `src/lib/jobs.ts` owns the one
+  status→tone table. Details in the commit message.
 
-| File | Class | Count |
-|---|---|---|
-| `src/components/organizations/tabs/OverviewTab.vue` | `.overview__block` | 3 (Contact person, Organization settings, Storage quotas) |
-| `src/components/organizations/tabs/SubscriptionTab.vue` | `.subscription__block` | 2 |
-| `src/components/plans/PlanRow.vue` | `.plan-row__block` | 2 |
+Two of the four agreed additions landed here rather than earlier: **backup step
+names** and the **rollback events timeline** (`GET /rollback-jobs/{id}` and its
+`/events` had never been called).
 
-Reference: `superadminpage/src/components/OrgDetailView.vue:89` —
-`<div class="iz-card org-detail__profile-card">`, with the local class carrying
-only layout. Its comment at line 377 is the pattern to copy.
-
-Replace the class, delete the chrome from the scoped block, keep only layout.
-**Deleting the local rule is the job** — leaving it in place means the primitive
-is inert (and here it loses the tie outright, see §3).
-
-### 4b. Array rows — match `MembersPanel`
-
-The members list is a plain `<ul>/<li class="members__row">` with a local
-`border-bottom`. `superadminpage` builds the same thing from primitives —
-`superadminpage/src/components/MembersPanel.vue:418`:
-
-```html
-<div class="members-panel__card iz-row--card iz-row--expandable"
-     :class="{ 'iz-row--expanded': expanded[member.userId] }">
-  <div class="members-panel__row iz-row__header" @click="toggle(member.userId)">
-    <span class="iz-identity__avatar">…</span>
-    <div class="iz-identity__body members-panel__info">
-      <span class="iz-identity__name">…</span>
-      <span class="iz-identity__meta">…</span>
-```
-
-Ours already uses `.iz-identity__*` inside the row; what is missing is the
-`.iz-row--card` shell.
-
-**One judgement call to make, not assume:** superadminpage's member rows are
-*expandable* and open onto a detail grid. Ours sit inside an already-expanded
-organization row, so nesting a second expandable may read badly. Flat
-`.iz-row--card` rows without `--expandable` are probably right. Decide
-deliberately and say which you picked.
-
-Same treatment for any other list of records: check the search results in the
-Members tab's "Add existing" mode (`.iz-user-picker__result`, already a
-primitive — leave it).
-
-### 4c. Pagination — **it was never built**
-
-I listed it as in scope and did not do it. There is **no `Pagination.vue`, and
-`iz-pagination` appears in 0 files.** The hardcoded caps are all still there, in
-`src/components/organizations/tabs/BackupsTab.vue`:
-
-```
-:468   backup jobs     limit: 20,  offset: 0
-:473   rollback jobs   limit: 30,  offset: 0
-:490   events          limit: 200, offset: 0
-```
-
-So backup job 21 and older are simply unreachable — there are 14 jobs today, so
-this is not yet visible, but it is a real hole. The API already takes `limit`
-and `offset` (`BackupController` clamps jobs to 100 and events to 200).
-
-Use the theme's `.iz-pagination` / `.iz-pagination__pages` primitive — its
-comment says it was reimplemented five times across the apps and this is the
-one. Build it once in `src/components/ui/Pagination.vue`.
-
-Also note the organization and plan lists page nothing at all: both fetch
-everything and filter client-side. `PlanController::getPlans` supports
-`search`/`limit`/`offset` and none of it is used. Decide whether that matters at
-this scale — with 2 orgs and 2 plans it currently does not.
-
----
-
-## 5. Then: Backups and Handover
-
-`BackupsTab.vue` and `HandoverTab.vue` are the last components not *built* from
-the theme. They now match it visually — every font size is on the ramp and every
-colour is an `--iz-*` token — but they carry **1,103 lines of local structural
-CSS** (`.job-card`, `.timeline`, `.progress-track`, `.status-indicator`,
-`.rollback-item`) instead of `.iz-row--card`, `.iz-panel`, `.iz-metrics`.
-
-For contrast: `OrgRow.vue` has **0** chrome declarations.
-
-These are the two components with the most behaviour — 2s and 2.5s polling,
-rollback validation rendering, step timelines, artifact expiry — so this is
-structural surgery on the riskiest files. Do it as its own pass, and re-verify
-against the real data (14 backup jobs, 3 handover jobs) rather than by eye.
-
-Already fixed in them, do not undo:
-- `Finished` / `Artifact size` were bound to `completedAt` / `fileSize`, which
-  the API never returns; they now use `finishedAt` / `artifactSize`.
-- Download is gated on artifact name and expiry, not just `status === completed`.
-- Deleting the polled job now stops its timer.
-- Status badges are `.iz-pill` with an explicit tone table; `expired` had no
-  rule at all before and rendered unstyled.
+The theme gained `--iz-font-mono` (twelve hand-written copies in three forms
+across the four apps) and a new §12 listing the three shapes every consumer
+still hand-rolls: the key-value detail grid, the step list and an indeterminate
+meter. **Deploying the theme is a step**: `./deploy-docker.sh
+master-nextcloud-1` from the theme repo. Editing the repo alone changes
+nothing — the container serves a copy, and that cost half an hour here.
 
 ---
 
@@ -209,10 +155,22 @@ Already fixed in them, do not undo:
 than screenshots: the three tabs, all five detail tabs, the org and plan lists,
 trial defaults, and all five modals opening, prefilling and cancelling.
 
+**Also verified**, against the live rows rather than by eye: 7 backup jobs on
+org 1 (retention keeps 7 per org, so 14 across two), 4 steps each in order with
+their human names, 3 events; 3 handover jobs, 3 steps, 10 events across two
+levels, and the dry-run preview rendering as chips plus its warning.
+
 **Not verified:** no form has actually been *submitted*. Creating an
 organization, converting `testorg`, saving trial defaults, deleting a plan or a
 backup — all the POST/PUT/DELETE paths are unexercised, because they mutate the
-dev instance. Worth doing deliberately at some point.
+dev instance. The "Start transfer" ConfirmDialog was opened and cancelled, not
+confirmed; a handover job cannot be deleted once created.
+
+**Rollback rendering is structurally verified only.** This instance has **0
+rollback jobs**, so the expandable rollback row, its validation block, its
+impact chips and its new events timeline have never had real data through them.
+Seed one — a dry run against backup #21 or #22, the only completed full backups
+— before trusting that path.
 
 **Known, not this app's bug:** `adminpage`'s `/api/backup-jobs` still 500s. It
 does a server-to-server loopback to `getAbsoluteURL()`, which builds a portless

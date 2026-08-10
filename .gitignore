@@ -29,3 +29,6 @@ docs/
 CLAUDE.md
 HANDOVER.md
 REDESIGN_HANDOVER.md
+
+# Environments
+.env

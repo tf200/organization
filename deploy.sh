@@ -1,37 +1,63 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+# Exit immediately if a command exits with a non-zero status
+set -e
 
-REMOTE_HOST="root@185.169.252.206"
-REMOTE_APP_DIR="/var/lib/docker/volumes/nextcloud_nextcloud_custom_apps/_data/organization"
-REMOTE_BRANCH="taha"
-NEXTCLOUD_CONTAINER="nextcloud"
-APP_ID="organization"
+# ==========================================
+# CONFIGURATION (Read from environment, with defaults)
+# ==========================================
+VPS_USER="${VPS_USER:-root}"
+VPS_HOST="${VPS_HOST:-185.169.252.206}"
+VPS_NC_PATH="${VPS_NC_PATH:-/opt/nextcloud-stack/nextcloud}"
+APP_NAME="${APP_NAME:-organization}"
+CONTAINER_NAME="${CONTAINER_NAME:-nextcloud-app}"
 
-echo "Starting deploy to ${REMOTE_HOST}"
+# ==========================================
+# VALIDATION
+# ==========================================
+if [ "$VPS_HOST" = "your-vps-ip" ]; then
+  echo "⚠️  Error: Please configure VPS_HOST in your .env file."
+  exit 1
+fi
 
-ssh "${REMOTE_HOST}" /bin/bash <<EOF
-set -euo pipefail
-
-cd "${REMOTE_APP_DIR}"
-
-echo "Fetching latest changes from ${REMOTE_BRANCH}"
-git fetch origin "${REMOTE_BRANCH}"
-
-echo "Resetting working tree to origin/${REMOTE_BRANCH}"
-git reset --hard "origin/${REMOTE_BRANCH}"
-
-echo "Cleaning untracked files"
-git clean -fd -e node_modules/
-
-echo "Building frontend assets"
+# ==========================================
+# 1. BUILD LOCAL ASSETS
+# ==========================================
+echo "📦 Building local assets..."
 npm run build
+composer install --no-dev --no-scripts --ignore-platform-reqs
 
-echo "Disabling ${APP_ID}"
-docker exec -u www-data "${NEXTCLOUD_CONTAINER}" php occ app:disable "${APP_ID}"
+# ==========================================
+# 2. RSYNC FILES TO VPS (Syncing to custom_apps volume)
+# ==========================================
+echo "🚀 Syncing files to VPS volume..."
+rsync -avz --delete \
+  --exclude='node_modules/' \
+  --exclude='.git/' \
+  --exclude='.github/' \
+  --exclude='tests/' \
+  --exclude='composer.json' \
+  --exclude='composer.lock' \
+  --exclude='package.json' \
+  --exclude='package-lock.json' \
+  --exclude='.eslint*' \
+  --exclude='tsconfig.json' \
+  --exclude='vite.config.ts' \
+  --exclude='deploy.sh' \
+  --exclude='Justfile' \
+  --exclude='.env' \
+  ./ "$VPS_USER@$VPS_HOST:$VPS_NC_PATH/custom_apps/$APP_NAME/"
 
-echo "Enabling ${APP_ID}"
-docker exec -u www-data "${NEXTCLOUD_CONTAINER}" php occ app:enable "${APP_ID}"
-EOF
+# ==========================================
+# 3. DOCKER COMMANDS: SET PERMISSIONS AND UPDATE APP
+# ==========================================
+echo "🔧 Setting permissions and enabling app inside Docker container..."
+ssh "$VPS_USER@$VPS_HOST" "
+  # Set ownership of the app folder to www-data inside the container
+  docker exec -u root $CONTAINER_NAME chown -R www-data:www-data /var/www/html/custom_apps/$APP_NAME
 
-echo "Deploy completed"
+  # Tell Nextcloud to update/enable the app
+  docker exec -u www-data $CONTAINER_NAME php occ app:enable $APP_NAME
+"
+
+echo "✅ Deployment finished successfully!"

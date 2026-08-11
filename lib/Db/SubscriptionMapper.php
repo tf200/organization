@@ -120,4 +120,21 @@ class SubscriptionMapper extends QBMapper
             return $subscription;
         }, $rows);
     }
+
+    /**
+     * @return int[]
+     */
+    public function findOrganizationIdsByPlanId(int $planId): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('organization_id')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('plan_id', $qb->createNamedParameter($planId, IQueryBuilder::PARAM_INT)));
+
+        $result = $qb->executeQuery();
+        $organizationIds = array_map('intval', $result->fetchFirstColumn());
+        $result->closeCursor();
+
+        return $organizationIds;
+    }
 }

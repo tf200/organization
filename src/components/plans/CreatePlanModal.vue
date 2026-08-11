@@ -89,11 +89,11 @@
 							<IzTextField v-model.number="sharedStorageGB"
 								label="Shared Storage (GB)"
 								type="number"
-								:min="0" />
+								:min="0.001" />
 							<IzTextField v-model.number="privateStorageGB"
 								label="Private Storage (GB)"
 								type="number"
-								:min="0" />
+								:min="0.001" />
 						</div>
 					</div>
 				</div>

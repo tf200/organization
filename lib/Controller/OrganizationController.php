@@ -10,6 +10,7 @@ use OCP\AppFramework\OCS\OCSException;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\AppFramework\OCSController;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -26,10 +27,12 @@ use OCA\Organization\Db\PlanMapper;
 use OCA\Organization\Db\SubscriptionHistoryMapper;
 use OCA\Organization\Db\SubscriptionMapper;
 use OCA\Organization\Db\UserMapper;
+use OCA\Organization\Event\EntitlementsChangedEvent;
 use OCA\Organization\Service\AccountHandoverService;
 use OCA\Organization\Service\NotificationService;
 use OCA\Organization\Service\OrganizationAdminService;
 use OCA\Organization\Service\OrganizationService;
+use OCA\Organization\Service\PlanEntitlementValidator;
 use OCA\Organization\Service\SubscriptionService;
 use OCA\Organization\Service\TrialOrganizationService;
 
@@ -50,6 +53,7 @@ class OrganizationController extends OCSController
         private OrganizationAdminService $organizationAdminService,
         private AccountHandoverService $accountHandoverService,
         private NotificationService $notificationService,
+        private PlanEntitlementValidator $entitlementValidator,
         private SubscriptionService $subscriptionService,
         private TrialOrganizationService $trialOrganizationService,
         private SubscriptionHistoryMapper $subscriptionHistoryMapper,
@@ -57,6 +61,7 @@ class OrganizationController extends OCSController
         private IGroupManager $groupManager,
         private IUserSession $userSession,
         private IDBConnection $db,
+        private IEventDispatcher $eventDispatcher,
         private LoggerInterface $logger
     ) {
         parent::__construct($appName, $request);
@@ -746,7 +751,6 @@ class OrganizationController extends OCSController
             );
 
             $this->db->commit();
-            return new DataResponse(['subscription' => $updatedSubscription]);
 
         } catch (Exception $e) {
             $this->db->rollBack();
@@ -756,6 +760,9 @@ class OrganizationController extends OCSController
             }
             throw new OCSException('Failed to update organization: ' . $e->getMessage());
         }
+
+        $this->dispatchEntitlementChange($organizationId);
+        return new DataResponse(['subscription' => $updatedSubscription]);
     }
 
     /**
@@ -783,6 +790,12 @@ class OrganizationController extends OCSController
         if ($plan === null) {
             throw new OCSNotFoundException('Plan not found');
         }
+        $this->entitlementValidator->validate(
+            $plan->getMaxMembers(),
+            $plan->getMaxProjects(),
+            $plan->getSharedStoragePerProject(),
+            $plan->getPrivateStoragePerUser(),
+        );
 
         $this->db->beginTransaction();
         try {
@@ -819,6 +832,8 @@ class OrganizationController extends OCSController
 
             $this->db->commit();
 
+            $this->dispatchEntitlementChange($organizationId);
+
             return new DataResponse([
                 'organization' => $organization,
                 'subscription' => $subscription,
@@ -833,6 +848,18 @@ class OrganizationController extends OCSController
                 throw $e;
             }
             throw new OCSException('Failed to convert trial organization: ' . $e->getMessage());
+        }
+    }
+
+    private function dispatchEntitlementChange(int $organizationId): void
+    {
+        try {
+            $this->eventDispatcher->dispatchTyped(EntitlementsChangedEvent::forOrganization($organizationId));
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to dispatch organization entitlement change', [
+                'organizationId' => $organizationId,
+                'exception' => $e,
+            ]);
         }
     }
 

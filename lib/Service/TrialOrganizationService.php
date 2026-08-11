@@ -34,6 +34,7 @@ class TrialOrganizationService
 		private OrganizationMapper $organizationMapper,
 		private OrganizationService $organizationService,
 		private PlanMapper $planMapper,
+		private PlanEntitlementValidator $entitlementValidator,
 		private SubscriptionMapper $subscriptionMapper,
 		private OrganizationAdminService $organizationAdminService,
 		private LoggerInterface $logger,
@@ -62,7 +63,7 @@ class TrialOrganizationService
 
 	public function getPrivateStoragePerUser(): int
 	{
-		return (int) $this->config->getAppValue('organization', self::TRIAL_PRIVATE_STORAGE_PER_USER, '0');
+		return (int) $this->config->getAppValue('organization', self::TRIAL_PRIVATE_STORAGE_PER_USER, '107374182');
 	}
 
 	public function getPrice(): float
@@ -126,6 +127,13 @@ class TrialOrganizationService
 		if ($organization === null) {
 			throw new OCSException('Failed to create trial organization', 104);
 		}
+
+		$this->entitlementValidator->validate(
+			$this->getMaxMembers(),
+			$this->getMaxProjects(),
+			$this->getSharedStoragePerProject(),
+			$this->getPrivateStoragePerUser(),
+		);
 
 		$plan = $this->planMapper->create(
 			$this->getPlanName() . ' — ' . $displayName,

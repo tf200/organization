@@ -11,6 +11,7 @@ use OCP\AppFramework\OCSController;
 use OCP\IConfig;
 use OCP\IRequest;
 
+use OCA\Organization\Service\PlanEntitlementValidator;
 use OCA\Organization\Service\TrialOrganizationService;
 
 use Psr\Log\LoggerInterface;
@@ -23,6 +24,7 @@ class AdminSettingsController extends OCSController
 		private IConfig $config,
 		private LoggerInterface $logger,
 		private TrialOrganizationService $trialService,
+		private PlanEntitlementValidator $entitlementValidator,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -54,7 +56,7 @@ class AdminSettingsController extends OCSController
 		int $trial_max_members = 3,
 		int $trial_max_projects = 1,
 		float $trial_shared_storage_gb = 0.1,
-		float $trial_private_storage_gb = 0,
+		float $trial_private_storage_gb = 0.1,
 		string $trial_plan_name = 'Trial Plan',
 	): DataResponse {
 		if ($trial_max_members < 1) {
@@ -69,9 +71,18 @@ class AdminSettingsController extends OCSController
 		if (trim($trial_plan_name) === '') {
 			throw new OCSException('Trial plan name is required', 104);
 		}
+		if (!is_finite($trial_shared_storage_gb) || !is_finite($trial_private_storage_gb)) {
+			throw new OCSException('Storage limits must be finite numbers', 104);
+		}
 
 		$sharedStorageBytes = (int) round($trial_shared_storage_gb * 1073741824);
 		$privateStorageBytes = (int) round($trial_private_storage_gb * 1073741824);
+		$this->entitlementValidator->validate(
+			$trial_max_members,
+			$trial_max_projects,
+			$sharedStorageBytes,
+			$privateStorageBytes,
+		);
 
 		$this->config->setAppValue('organization', 'trial_duration', trim($trial_duration));
 		$this->config->setAppValue('organization', 'trial_max_members', (string) $trial_max_members);

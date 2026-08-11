@@ -139,18 +139,20 @@
 						<div class="section-body grid-2-tight">
 							<IzTextField v-model.number="newOrg.memberLimit"
 								label="Max Members"
-								type="number" />
+								type="number"
+								:min="1" />
 							<IzTextField v-model.number="newOrg.projectsLimit"
 								label="Max Projects"
-								type="number" />
+								type="number"
+								:min="1" />
 							<IzTextField v-model.number="sharedStorageGB"
 								label="Shared Storage (GB)"
 								type="number"
-								:min="0" />
+								:min="0.001" />
 							<IzTextField v-model.number="privateStorageGB"
 								label="Private Storage (GB)"
 								type="number"
-								:min="0" />
+								:min="0.001" />
 						</div>
 					</div>
 				</div>

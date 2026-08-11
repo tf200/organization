@@ -29,6 +29,7 @@ class SubscriptionService
         PlanMapper $planMapper,
         OrganizationMapper $organizationMapper,
         PlanService $planService,
+        private PlanEntitlementValidator $entitlementValidator,
         SubscriptionHistoryMapper $subscriptionHistoryMapper,
         NotificationService $notificationService,
     ) {
@@ -67,6 +68,13 @@ class SubscriptionService
         $subscription->setEndedAt($endedAt->format('Y-m-d H:i:s'));
 
         if ($planId === null) {
+            $this->entitlementValidator->validate(
+                $memberLimit,
+                $projectsLimit,
+                $sharedStoragePerProject,
+                $privateStorage,
+            );
+
             $plan = $this->planMapper->create(
                 'Custom Plan for Org ' . $organizationId,
                 $memberLimit,
@@ -79,6 +87,17 @@ class SubscriptionService
             );
 
             $planId = $plan->getId();
+        } else {
+            $plan = $this->planMapper->find($planId);
+            if ($plan === null) {
+                throw new OCSNotFoundException('Plan not found');
+            }
+            $this->entitlementValidator->validate(
+                $plan->getMaxMembers(),
+                $plan->getMaxProjects(),
+                $plan->getSharedStoragePerProject(),
+                $plan->getPrivateStoragePerUser(),
+            );
         }
 
         $subscription->setPlanId($planId);

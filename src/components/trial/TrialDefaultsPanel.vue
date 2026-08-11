@@ -24,9 +24,9 @@ const form = ref({
 	duration: '',
 	maxMembers: 3,
 	maxProjects: 1,
-	sharedValue: 0,
+	sharedValue: 100,
 	sharedUnit: 'MB' as Unit,
-	privateValue: 0,
+	privateValue: 100,
 	privateUnit: 'MB' as Unit,
 })
 
@@ -189,7 +189,7 @@ function onSubmit() {
 								v-model.number="form.sharedValue"
 								class="iz-input trial__num"
 								type="number"
-								min="0"
+								min="0.001"
 								step="0.001"
 								required>
 							<select v-model="form.sharedUnit" class="iz-select trial__unit" aria-label="Shared storage unit">
@@ -215,7 +215,7 @@ function onSubmit() {
 								v-model.number="form.privateValue"
 								class="iz-input trial__num"
 								type="number"
-								min="0"
+								min="0.001"
 								step="0.001"
 								required>
 							<select v-model="form.privateUnit" class="iz-select trial__unit" aria-label="Private storage unit">

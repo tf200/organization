@@ -12,7 +12,8 @@ class PlanService
 {
 
     public function __construct(
-        private PlanMapper $planMapper
+        private PlanMapper $planMapper,
+        private PlanEntitlementValidator $entitlementValidator,
     ) {
     }
 
@@ -51,6 +52,13 @@ class PlanService
         ?string $currency,
         ?bool $isPublic
     ): Plan {
+        $this->entitlementValidator->validate(
+            $maxMembers,
+            $maxProjects,
+            $sharedStoragePerProject,
+            $privateStoragePerUser,
+        );
+
         return $this->planMapper->create(
             $name,
             $maxMembers,
@@ -79,6 +87,13 @@ class PlanService
         ?string $currency,
         ?bool $isPublic
     ): Plan {
+        $this->entitlementValidator->validate(
+            $maxMembers,
+            $maxProjects,
+            $sharedStoragePerProject,
+            $privateStoragePerUser,
+        );
+
         $plan = $this->getPlan($id);
         $plan->setName($name);
         $plan->setMaxMembers($maxMembers);
@@ -125,10 +140,27 @@ class PlanService
         $originalPlan = $this->planMapper->find($originalPlanId);
         $newPlan = $this->planMapper->find($newPlanId);
 
+        if ($originalPlan === null) {
+            throw new OCSNotFoundException('Current plan not found');
+        }
+
         // SCENARIO 1: Switching to a public plan
         if ($newPlan !== null && $newPlan->getIsPublic()) {
+            $this->entitlementValidator->validate(
+                $newPlan->getMaxMembers(),
+                $newPlan->getMaxProjects(),
+                $newPlan->getSharedStoragePerProject(),
+                $newPlan->getPrivateStoragePerUser(),
+            );
             return $newPlan->getId();
         }
+
+        $this->entitlementValidator->validate(
+            $maxMembers,
+            $maxProjects,
+            $sharedStorage,
+            $privateStorage,
+        );
 
         // SCENARIO 2: Editing an existing custom plan
         if (!$originalPlan->getIsPublic()) {

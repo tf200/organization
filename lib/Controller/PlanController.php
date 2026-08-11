@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace OCA\Organization\Controller;
 
 use Exception;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSException;
@@ -11,6 +12,7 @@ use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 use OCA\Organization\Db\PlanMapper;
+use OCA\Organization\Event\EntitlementsChangedEvent;
 use OCA\Organization\Service\PlanService;
 use Psr\Log\LoggerInterface;
 
@@ -22,6 +24,7 @@ class PlanController extends OCSController
         IRequest $request,
         private PlanMapper $planMapper,
         private PlanService $planService,
+        private IEventDispatcher $eventDispatcher,
         private LoggerInterface $logger
     ) {
         parent::__construct($appName, $request);
@@ -141,6 +144,14 @@ class PlanController extends OCSController
                 $currency,
                 $isPublic
             );
+            try {
+                $this->eventDispatcher->dispatchTyped(EntitlementsChangedEvent::forPlan($planId));
+            } catch (\Throwable $e) {
+                $this->logger->error('Failed to dispatch plan entitlement change', [
+                    'planId' => $planId,
+                    'exception' => $e,
+                ]);
+            }
             return new DataResponse($plan);
         } catch (Exception $e) {
             $this->logger->error('Failed to update plan: ' . $e->getMessage(), ['exception' => $e]);

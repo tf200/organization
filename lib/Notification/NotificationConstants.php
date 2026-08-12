@@ -9,6 +9,7 @@ final class NotificationConstants
     public const APP_ID = 'organization';
 
     public const OBJECT_TYPE_ORGANIZATION = 'organization';
+    public const OBJECT_TYPE_STORAGE = 'storage';
 
     public const SUBJECT_SUBSCRIPTION_STATUS_CHANGED = 'subscription_status_changed';
     public const SUBJECT_SUBSCRIPTION_EXTENDED = 'subscription_extended';
@@ -18,6 +19,7 @@ final class NotificationConstants
     public const SUBJECT_ORGANIZATION_HANDOVER_STARTED = 'organization_handover_started';
     public const SUBJECT_ORGANIZATION_HANDOVER_COMPLETED = 'organization_handover_completed';
     public const SUBJECT_ORGANIZATION_HANDOVER_FAILED = 'organization_handover_failed';
+    public const SUBJECT_STORAGE_THRESHOLD = 'storage_threshold';
 
     private function __construct()
     {

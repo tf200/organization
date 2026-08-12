@@ -208,6 +208,49 @@ final class NotificationService
         );
     }
 
+    /** @param string[] $adminUserIds */
+    public function notifyStorageThreshold(
+        array $adminUserIds,
+        int $organizationId,
+        string $organizationName,
+        string $resourceType,
+        string $resourceId,
+        string $resourceName,
+        int $threshold,
+    ): bool {
+        $dateTime = new DateTime('now', new DateTimeZone('UTC'));
+        $notified = false;
+        foreach ($adminUserIds as $userId) {
+            try {
+                $notification = $this->notificationManager->createNotification();
+                $notification->setApp(NotificationConstants::APP_ID)
+                    ->setUser($userId)
+                    ->setDateTime($dateTime)
+                    ->setObject(NotificationConstants::OBJECT_TYPE_STORAGE, $resourceType . ':' . $resourceId)
+                    ->setSubject(NotificationConstants::SUBJECT_STORAGE_THRESHOLD, [
+                        'orgName' => $organizationName,
+                        'resourceType' => $resourceType,
+                        'resourceName' => $resourceName,
+                        'threshold' => $threshold,
+                    ])
+                    ->setLink($this->urlGenerator->linkToRouteAbsolute('organization.Page.index'));
+                $this->notificationManager->notify($notification);
+                $notified = true;
+            } catch (\Throwable $e) {
+                $this->logger->error('Failed to send storage threshold notification', [
+                    'orgId' => $organizationId,
+                    'userId' => $userId,
+                    'resourceType' => $resourceType,
+                    'resourceName' => $resourceName,
+                    'threshold' => $threshold,
+                    'exception' => $e,
+                ]);
+            }
+        }
+
+        return $notified;
+    }
+
     /**
      * @param array<string,mixed> $subjectParameters
      */

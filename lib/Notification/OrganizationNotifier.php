@@ -117,6 +117,17 @@ final class OrganizationNotifier implements INotifier
                 );
                 return $notification;
             }
+
+            case NotificationConstants::SUBJECT_STORAGE_THRESHOLD: {
+                $resourceName = isset($parameters['resourceName']) ? (string) $parameters['resourceName'] : '';
+                $resourceType = isset($parameters['resourceType']) ? (string) $parameters['resourceType'] : '';
+                $threshold = isset($parameters['threshold']) ? (int) $parameters['threshold'] : 0;
+                $label = $resourceType === 'project' ? $l10n->t('Project') : $l10n->t('User');
+                $notification->setParsedSubject(
+                    $l10n->t('%1$s storage for %2$s in %3$s has reached %4$s%%', [$label, $resourceName, $organizationName, $threshold])
+                );
+                return $notification;
+            }
         }
 
         throw new UnknownNotificationException();

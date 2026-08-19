@@ -57,6 +57,7 @@ ssh "$VPS_USER@$VPS_HOST" "
   docker exec -u root $CONTAINER_NAME chown -R www-data:www-data /var/www/html/custom_apps/$APP_NAME
 
   # Tell Nextcloud to update/enable the app
+  docker exec -u www-data $CONTAINER_NAME php occ app:disable $APP_NAME
   docker exec -u www-data $CONTAINER_NAME php occ app:enable $APP_NAME
 "
 

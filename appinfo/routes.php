@@ -8,6 +8,9 @@ return [
     'routes' => [
         ['name' => 'Page#index', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'BackupDownload#download', 'url' => '/organizations/{organizationId}/backups/jobs/{jobId}/download', 'verb' => 'GET'],
+        ['name' => 'Contract#download', 'url' => '/organizations/{organizationId}/contracts/{contractId}/download', 'verb' => 'GET'],
+        ['name' => 'Contract#signedDownload', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests/{requestId}/download', 'verb' => 'GET'],
+        ['name' => 'Contract#signaturePlacementPdf', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests/{requestId}/placement.pdf', 'verb' => 'GET'],
     ],
     'ocs' => [
 
@@ -40,6 +43,19 @@ return [
         ['root' => '/apps/organization', 'name' => 'Organization#createOrganization', 'url' => '/organizations', 'verb' => 'POST'],
         ['root' => '/apps/organization', 'name' => 'Organization#updateSubscription', 'url' => '/organizations/{organizationId}/subscription', 'verb' => 'PUT'],
         ['root' => '/apps/organization', 'name' => 'Organization#convertTrialToStandard', 'url' => '/organizations/{organizationId}/convert-trial', 'verb' => 'POST'],
+
+        // Contracts
+        ['root' => '/apps/organization', 'name' => 'Contract#index', 'url' => '/organizations/{organizationId}/contracts', 'verb' => 'GET'],
+        ['root' => '/apps/organization', 'name' => 'Contract#create', 'url' => '/organizations/{organizationId}/contracts', 'verb' => 'POST'],
+        ['root' => '/apps/organization', 'name' => 'Contract#update', 'url' => '/organizations/{organizationId}/contracts/{contractId}', 'verb' => 'PUT'],
+        ['root' => '/apps/organization', 'name' => 'Contract#replace', 'url' => '/organizations/{organizationId}/contracts/{contractId}/file', 'verb' => 'POST'],
+        ['root' => '/apps/organization', 'name' => 'Contract#destroy', 'url' => '/organizations/{organizationId}/contracts/{contractId}', 'verb' => 'DELETE'],
+        ['root' => '/apps/organization', 'name' => 'Contract#signatureRequests', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests', 'verb' => 'GET'],
+        ['root' => '/apps/organization', 'name' => 'Contract#createSignatureRequest', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests', 'verb' => 'POST'],
+        ['root' => '/apps/organization', 'name' => 'Contract#sendSignatureRequest', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests/{requestId}/send', 'verb' => 'POST'],
+        ['root' => '/apps/organization', 'name' => 'Contract#signaturePlacement', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests/{requestId}/placement', 'verb' => 'GET'],
+        ['root' => '/apps/organization', 'name' => 'Contract#signaturePlacementData', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests/{requestId}/placement-data', 'verb' => 'GET'],
+        ['root' => '/apps/organization', 'name' => 'Contract#saveSignaturePlacement', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests/{requestId}/elements', 'verb' => 'PUT'],
 
         // Plans
         // Plans

@@ -169,13 +169,21 @@ class ContractService
     /** @return array{storageKey:string,checksum:string} */
     public function storeSignedCopy(int $organizationId, string $content): array
     {
-        if (!str_starts_with($content, '%PDF-')) {
-            throw new \RuntimeException('LibreSign returned an invalid signed PDF');
-        }
+        $this->validateSignedPdf($content);
         $storageKey = 'signed-' . bin2hex(random_bytes(16)) . '.pdf';
         $file = $this->getOrganizationFolder($organizationId, true)->newFile($storageKey);
         $file->putContent($content);
         return ['storageKey' => $storageKey, 'checksum' => hash('sha256', $content)];
+    }
+
+    public function replaceSignedCopy(int $organizationId, string $storageKey, string $content): string
+    {
+        $this->validateSignedPdf($content);
+        if (!str_starts_with($storageKey, 'signed-')) {
+            throw new \InvalidArgumentException('Invalid signed contract storage key');
+        }
+        $this->getStoredFile($organizationId, $storageKey)->putContent($content);
+        return hash('sha256', $content);
     }
 
     public function getStoredFile(int $organizationId, string $storageKey): \OCP\Files\SimpleFS\ISimpleFile
@@ -194,6 +202,13 @@ class ContractService
             throw new \OutOfBoundsException('Contract not found');
         }
         return $contract;
+    }
+
+    private function validateSignedPdf(string $content): void
+    {
+        if (!str_starts_with($content, '%PDF-')) {
+            throw new \RuntimeException('LibreSign returned an invalid signed PDF');
+        }
     }
 
     private function createVersion(Contract $contract, int $versionNumber): ContractVersion

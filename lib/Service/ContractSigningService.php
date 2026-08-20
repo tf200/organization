@@ -159,13 +159,25 @@ class ContractSigningService
                 }
                 $this->requestMapper->update($request);
             }
-            if ($status === 'completed' && $request->getSignedStorageKey() === null) {
+            if ($status === 'completed') {
                 $signedPdf = $this->libresign->getSignedPdf($manager, $request->getLibresignFileUuid());
-                $stored = $this->contractService->storeSignedCopy($request->getOrganizationId(), $signedPdf);
-                $request->setSignedStorageKey($stored['storageKey']);
-                $request->setSignedChecksum($stored['checksum']);
-                $request->setUpdatedAt($this->now());
-                $this->requestMapper->update($request);
+                $signedChecksum = hash('sha256', $signedPdf);
+                if ($request->getSignedStorageKey() === null) {
+                    $stored = $this->contractService->storeSignedCopy($request->getOrganizationId(), $signedPdf);
+                    $request->setSignedStorageKey($stored['storageKey']);
+                    $request->setSignedChecksum($stored['checksum']);
+                    $request->setUpdatedAt($this->now());
+                    $this->requestMapper->update($request);
+                } elseif ($request->getSignedChecksum() !== $signedChecksum) {
+                    $checksum = $this->contractService->replaceSignedCopy(
+                        $request->getOrganizationId(),
+                        $request->getSignedStorageKey(),
+                        $signedPdf,
+                    );
+                    $request->setSignedChecksum($checksum);
+                    $request->setUpdatedAt($this->now());
+                    $this->requestMapper->update($request);
+                }
             }
         } catch (\Throwable $e) {
             $this->logger->warning('Could not synchronize contract signature request', [

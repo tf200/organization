@@ -12,6 +12,7 @@ use OCP\IUserManager;
 class OrganizationAdminService
 {
     public const ORGANIZATION_ADMINS_GROUP = 'organization-admins';
+    public const PROJECT_ADMIN_GROUP_PREFIX = 'organization-project-admins-';
 
     public function __construct(
         private IUserManager $userManager,
@@ -75,6 +76,13 @@ class OrganizationAdminService
                     $this->appManager->enableAppForGroups('organization', $groups);
                 } catch (\Throwable $e) {
                 }
+            }
+
+            $projectAdminsGroupId = self::PROJECT_ADMIN_GROUP_PREFIX . $organizationId;
+            $projectAdminsGroup = $this->groupManager->get($projectAdminsGroupId)
+                ?? $this->groupManager->createGroup($projectAdminsGroupId);
+            if ($projectAdminsGroup !== null) {
+                $projectAdminsGroup->addUser($user);
             }
 
             $organization = $this->organizationMapper->find($organizationId);

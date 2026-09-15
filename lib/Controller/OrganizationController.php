@@ -34,6 +34,7 @@ use OCA\Organization\Service\OrganizationAdminService;
 use OCA\Organization\Service\OrganizationService;
 use OCA\Organization\Service\PlanEntitlementValidator;
 use OCA\Organization\Service\SubscriptionService;
+use OCA\Organization\Service\TeamService;
 use OCA\Organization\Service\TrialOrganizationService;
 
 use Exception;
@@ -57,6 +58,7 @@ class OrganizationController extends OCSController
         private SubscriptionService $subscriptionService,
         private TrialOrganizationService $trialOrganizationService,
         private SubscriptionHistoryMapper $subscriptionHistoryMapper,
+        private TeamService $teamService,
         private IUserManager $userManager,
         private IGroupManager $groupManager,
         private IUserSession $userSession,
@@ -395,7 +397,20 @@ class OrganizationController extends OCSController
         }
 
         $member = $this->userManager->get($userId);
-        $this->userMapper->removeUserFromOrganization($userId);
+        $this->db->beginTransaction();
+        try {
+            $this->teamService->removeOrganizationMember($userId, $organizationId);
+            $this->userMapper->removeUserFromOrganization($userId);
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            $this->logger->error('Failed to remove organization member', [
+                'organizationId' => $organizationId,
+                'userId' => $userId,
+                'exception' => $e,
+            ]);
+            throw new OCSException('Failed to remove organization member', 104);
+        }
         $this->notificationService->notifyOrganizationMemberRemoved(
             $organizationId,
             $organization->getName(),

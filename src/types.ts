@@ -15,6 +15,33 @@ export interface Member {
 	role: 'admin' | 'member' | string
 }
 
+export interface TeamMember {
+	uid: string
+	displayName: string
+	email?: string | null
+}
+
+export interface Team {
+	id: number
+	organizationId: number
+	name: string
+	description?: string | null
+	fte: number
+	projectsPerFte: number
+	projectCapacity: number
+	createdBy: string
+	createdAt: string
+	updatedAt: string
+	members: TeamMember[]
+	memberCount: number
+}
+
+export interface ProjectTeamAssignment {
+	projectId: number
+	projectName: string
+	team: Pick<Team, 'id' | 'name'> | null
+}
+
 export interface Plan {
 	id: number
 	name: string

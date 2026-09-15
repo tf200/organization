@@ -5,6 +5,7 @@ import MembersTab from './tabs/MembersTab.vue'
 import SubscriptionTab from './tabs/SubscriptionTab.vue'
 import BackupsTab from './tabs/BackupsTab.vue'
 import HandoverTab from './tabs/HandoverTab.vue'
+import TeamsTab from './tabs/TeamsTab.vue'
 import { ocs } from '../../lib/api'
 import { useAsync } from '../../composables/useAsync'
 import type { Member, Organization } from '../../types'
@@ -26,7 +27,7 @@ const emit = defineEmits<{
 	changed: []
 }>()
 
-type DetailTab = 'overview' | 'members' | 'subscription' | 'backups' | 'handover'
+type DetailTab = 'overview' | 'members' | 'teams' | 'subscription' | 'backups' | 'handover'
 const activeTab = ref<DetailTab>('overview')
 
 /** The full record, fetched on first expand. Falls back to the list row. */
@@ -57,6 +58,10 @@ const detail = useAsync(async () => {
 
 onMounted(() => detail.run())
 
+/**
+ * Keep detail state in sync after membership changes.
+ * @param next Updated member collection.
+ */
 function onMembersUpdated(next: Member[]) {
 	members.value = next
 	full.value = { ...full.value, members: next, usercount: next.length }
@@ -66,6 +71,7 @@ function onMembersUpdated(next: Member[]) {
 const tabs = computed(() => [
 	{ key: 'overview' as const, label: 'Overview', count: undefined as number | undefined },
 	{ key: 'members' as const, label: 'Members', count: members.value.length },
+	{ key: 'teams' as const, label: 'Teams', count: undefined as number | undefined },
 	{ key: 'subscription' as const, label: 'Subscription', count: undefined },
 	{ key: 'backups' as const, label: 'Backups', count: undefined },
 	{ key: 'handover' as const, label: 'Handover', count: undefined },
@@ -105,6 +111,10 @@ const tabs = computed(() => [
 				:org="full"
 				:members="members"
 				@members-updated="onMembersUpdated" />
+
+			<TeamsTab v-else-if="activeTab === 'teams'"
+				:org="full"
+				:members="members" />
 
 			<SubscriptionTab v-else-if="activeTab === 'subscription'"
 				:org="full"

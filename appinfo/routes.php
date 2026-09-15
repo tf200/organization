@@ -44,6 +44,16 @@ return [
         ['root' => '/apps/organization', 'name' => 'Organization#updateSubscription', 'url' => '/organizations/{organizationId}/subscription', 'verb' => 'PUT'],
         ['root' => '/apps/organization', 'name' => 'Organization#convertTrialToStandard', 'url' => '/organizations/{organizationId}/convert-trial', 'verb' => 'POST'],
 
+        // Teams
+        ['root' => '/apps/organization', 'name' => 'Team#index', 'url' => '/organizations/{organizationId}/teams', 'verb' => 'GET'],
+        ['root' => '/apps/organization', 'name' => 'Team#create', 'url' => '/organizations/{organizationId}/teams', 'verb' => 'POST'],
+        ['root' => '/apps/organization', 'name' => 'Team#update', 'url' => '/organizations/{organizationId}/teams/{teamId}', 'verb' => 'PUT'],
+        ['root' => '/apps/organization', 'name' => 'Team#destroy', 'url' => '/organizations/{organizationId}/teams/{teamId}', 'verb' => 'DELETE'],
+        ['root' => '/apps/organization', 'name' => 'Team#addMember', 'url' => '/organizations/{organizationId}/teams/{teamId}/members', 'verb' => 'POST'],
+        ['root' => '/apps/organization', 'name' => 'Team#removeMember', 'url' => '/organizations/{organizationId}/teams/{teamId}/members/{userId}', 'verb' => 'DELETE'],
+        ['root' => '/apps/organization', 'name' => 'Team#projectTeams', 'url' => '/organizations/{organizationId}/project-teams', 'verb' => 'GET'],
+        ['root' => '/apps/organization', 'name' => 'Team#assignProjectTeam', 'url' => '/organizations/{organizationId}/projects/{projectId}/team', 'verb' => 'PUT'],
+
         // Contracts
         ['root' => '/apps/organization', 'name' => 'Contract#index', 'url' => '/organizations/{organizationId}/contracts', 'verb' => 'GET'],
         ['root' => '/apps/organization', 'name' => 'Contract#create', 'url' => '/organizations/{organizationId}/contracts', 'verb' => 'POST'],

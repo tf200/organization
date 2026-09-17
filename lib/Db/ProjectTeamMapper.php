@@ -62,7 +62,8 @@ class ProjectTeamMapper
         try {
             $delete = $this->db->getQueryBuilder();
             $delete->delete('organization_project_teams')
-                ->where($delete->expr()->eq('project_id', $delete->createNamedParameter($projectId, \PDO::PARAM_INT)))
+                ->where($delete->expr()->eq('organization_id', $delete->createNamedParameter($organizationId, \PDO::PARAM_INT)))
+                ->andWhere($delete->expr()->eq('project_id', $delete->createNamedParameter($projectId, \PDO::PARAM_INT)))
                 ->executeStatement();
 
             $insert = $this->db->getQueryBuilder();

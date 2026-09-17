@@ -15,8 +15,8 @@ use OCP\DB\Types;
  * @method void setFte(float $fte)
  * @method void setProjectsPerFte(float $projectsPerFte)
  * @method void setCreatedBy(string $createdBy)
- * @method void setCreatedAt(string $createdAt)
- * @method void setUpdatedAt(string $updatedAt)
+ * @method void setCreatedAt(string|\DateTime $createdAt)
+ * @method void setUpdatedAt(string|\DateTime $updatedAt)
  */
 class Team extends Entity implements \JsonSerializable
 {
@@ -26,8 +26,8 @@ class Team extends Entity implements \JsonSerializable
     public float $fte = 1.0;
     public float $projectsPerFte = 1.0;
     public ?string $createdBy = null;
-    public ?string $createdAt = null;
-    public ?string $updatedAt = null;
+    public ?\DateTime $createdAt = null;
+    public ?\DateTime $updatedAt = null;
 
     public function __construct()
     {
@@ -52,8 +52,8 @@ class Team extends Entity implements \JsonSerializable
             'projectsPerFte' => $this->projectsPerFte,
             'projectCapacity' => round($this->fte * $this->projectsPerFte, 2),
             'createdBy' => $this->createdBy,
-            'createdAt' => $this->createdAt,
-            'updatedAt' => $this->updatedAt,
+            'createdAt' => $this->createdAt?->format('Y-m-d H:i:s'),
+            'updatedAt' => $this->updatedAt?->format('Y-m-d H:i:s'),
         ];
     }
 }

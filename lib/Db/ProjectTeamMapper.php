@@ -56,6 +56,18 @@ class ProjectTeamMapper
         ], $rows);
     }
 
+    public function findTeamIdForProject(int $organizationId, int $projectId): ?int
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('team_id')
+            ->from('organization_project_teams')
+            ->where($qb->expr()->eq('organization_id', $qb->createNamedParameter($organizationId, \PDO::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('project_id', $qb->createNamedParameter($projectId, \PDO::PARAM_INT)))
+            ->setMaxResults(1);
+        $teamId = $qb->executeQuery()->fetchOne();
+        return $teamId === false ? null : (int) $teamId;
+    }
+
     public function assign(int $organizationId, int $projectId, int $teamId, string $createdBy, string $now): void
     {
         $this->db->beginTransaction();

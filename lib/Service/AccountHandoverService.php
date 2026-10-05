@@ -748,7 +748,7 @@ class AccountHandoverService
             if (!method_exists($service, 'handoverUserInOrganization')) {
                 throw new \RuntimeException(sprintf('%s::handoverUserInOrganization is not available', $serviceClass));
             }
-            $result = $service->handoverUserInOrganization($sourceUserId, $targetUserId, $organizationId, $removeSourceFromGroups);
+            $result = $service->handoverUserInOrganization($sourceUserId, $targetUserId, $organizationId, $removeSourceFromGroups, $remapDeckContent);
         } elseif ($serviceClass === '\\OCA\\Deck\\Service\\AccountHandoverService') {
             if (!method_exists($service, 'handoverUserInOrganization')) {
                 throw new \RuntimeException(sprintf('%s::handoverUserInOrganization is not available', $serviceClass));

@@ -28,6 +28,7 @@ use OCA\Organization\Db\SubscriptionHistoryMapper;
 use OCA\Organization\Db\SubscriptionMapper;
 use OCA\Organization\Db\UserMapper;
 use OCA\Organization\Event\EntitlementsChangedEvent;
+use OCA\Organization\Event\OrganizationMemberRemovedEvent;
 use OCA\Organization\Service\AccountHandoverService;
 use OCA\Organization\Service\NotificationService;
 use OCA\Organization\Service\OrganizationAdminService;
@@ -396,6 +397,14 @@ class OrganizationController extends OCSController
             throw new OCSNotFoundException('Organization member not found');
         }
 
+        $ownedProjects = $this->countOwnedProjects($organizationId, $userId);
+        if ($ownedProjects > 0) {
+            throw new OCSException(sprintf(
+                'This member still owns %d project(s). Hand their projects over to another member before removing them.',
+                $ownedProjects,
+            ), 104);
+        }
+
         $member = $this->userManager->get($userId);
         $this->db->beginTransaction();
         try {
@@ -411,6 +420,7 @@ class OrganizationController extends OCSController
             ]);
             throw new OCSException('Failed to remove organization member', 104);
         }
+        $this->eventDispatcher->dispatchTyped(new OrganizationMemberRemovedEvent($organizationId, $userId));
         $this->notificationService->notifyOrganizationMemberRemoved(
             $organizationId,
             $organization->getName(),
@@ -864,6 +874,21 @@ class OrganizationController extends OCSController
             }
             throw new OCSException('Failed to convert trial organization: ' . $e->getMessage());
         }
+    }
+
+    private function countOwnedProjects(int $organizationId, string $userId): int
+    {
+        if (!$this->db->tableExists('custom_projects')) {
+            return 0;
+        }
+
+        $qb = $this->db->getQueryBuilder();
+        $qb->select($qb->func()->count('*'))
+            ->from('custom_projects')
+            ->where($qb->expr()->eq('organization_id', $qb->createNamedParameter($organizationId, \PDO::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('owner_id', $qb->createNamedParameter($userId)));
+
+        return (int) $qb->executeQuery()->fetchOne();
     }
 
     private function dispatchEntitlementChange(int $organizationId): void

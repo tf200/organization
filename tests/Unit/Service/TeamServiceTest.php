@@ -9,8 +9,14 @@ use OCA\Organization\Db\TeamMapper;
 use OCA\Organization\Db\TeamMemberMapper;
 use OCA\Organization\Db\ProjectTeamMapper;
 use OCA\Organization\Db\UserMapper;
+use OCA\Organization\Event\ProjectTeamChangedEvent;
+use OCA\Organization\Event\TeamDeletedEvent;
+use OCA\Organization\Event\TeamMemberAddedEvent;
+use OCA\Organization\Event\TeamMemberRemovedEvent;
 use OCA\Organization\Service\TeamService;
 use OCP\AppFramework\OCS\OCSException;
+use OCP\EventDispatcher\Event;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IUser;
 use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +28,8 @@ class TeamServiceTest extends TestCase
     private UserMapper $users;
     private IUserManager $userManager;
     private ProjectTeamMapper $projectTeams;
+    /** @var Event[] */
+    private array $events = [];
     private TeamService $service;
 
     protected function setUp(): void
@@ -31,7 +39,11 @@ class TeamServiceTest extends TestCase
         $this->users = $this->createMock(UserMapper::class);
         $this->userManager = $this->createMock(IUserManager::class);
         $this->projectTeams = $this->createMock(ProjectTeamMapper::class);
-        $this->service = new TeamService($this->teams, $this->members, $this->users, $this->userManager, $this->projectTeams);
+        $dispatcher = $this->createMock(IEventDispatcher::class);
+        $dispatcher->method('dispatchTyped')->willReturnCallback(function (Event $event): void {
+            $this->events[] = $event;
+        });
+        $this->service = new TeamService($this->teams, $this->members, $this->users, $this->userManager, $this->projectTeams, $dispatcher);
     }
 
     public function testRejectsInvalidCapacityValues(): void
@@ -162,6 +174,35 @@ class TeamServiceTest extends TestCase
         $this->teams->expects(self::once())->method('delete')->with($team);
 
         $this->service->delete(1, 4);
+    }
+
+    public function testTeamChangesAreAnnounced(): void
+    {
+        $team = $this->team(4);
+        $this->teams->method('findByIdAndOrganization')->willReturn($team);
+        $this->userManager->method('get')->willReturn($this->createMock(IUser::class));
+        $this->users->method('getOrganizationMembership')->willReturn(['organization_id' => 1, 'role' => 'member']);
+        $this->members->method('hasMember')->willReturnOnConsecutiveCalls(false, true);
+        $this->members->method('remove')->willReturn(1);
+        $this->members->method('getUserIds')->willReturn([]);
+        $this->projectTeams->method('findProject')->willReturn(['project_id' => 10, 'project_name' => 'Website']);
+        $this->projectTeams->method('findTeamIdForProject')->willReturnOnConsecutiveCalls(3, 4);
+        $this->projectTeams->method('findByOrganization')->willReturn([]);
+
+        $this->service->addMember(1, 4, 'alice');
+        $this->service->addMember(1, 4, 'alice');
+        $this->service->removeMember(1, 4, ' alice ');
+        $this->service->assignProjectTeam(1, 10, 4, 'admin');
+        $this->service->assignProjectTeam(1, 10, 4, 'admin');
+        $this->service->delete(1, 4);
+
+        self::assertCount(4, $this->events);
+        self::assertInstanceOf(TeamMemberAddedEvent::class, $this->events[0]);
+        self::assertInstanceOf(TeamMemberRemovedEvent::class, $this->events[1]);
+        self::assertSame('alice', $this->events[1]->getUserId());
+        self::assertInstanceOf(ProjectTeamChangedEvent::class, $this->events[2]);
+        self::assertSame([3, 4], [$this->events[2]->getPreviousTeamId(), $this->events[2]->getTeamId()]);
+        self::assertInstanceOf(TeamDeletedEvent::class, $this->events[3]);
     }
 
     private function team(int $id): Team

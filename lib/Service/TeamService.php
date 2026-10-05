@@ -9,8 +9,13 @@ use OCA\Organization\Db\TeamMapper;
 use OCA\Organization\Db\TeamMemberMapper;
 use OCA\Organization\Db\ProjectTeamMapper;
 use OCA\Organization\Db\UserMapper;
+use OCA\Organization\Event\ProjectTeamChangedEvent;
+use OCA\Organization\Event\TeamDeletedEvent;
+use OCA\Organization\Event\TeamMemberAddedEvent;
+use OCA\Organization\Event\TeamMemberRemovedEvent;
 use OCP\AppFramework\OCS\OCSException;
 use OCP\AppFramework\OCS\OCSNotFoundException;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IUserManager;
 
 class TeamService
@@ -21,6 +26,7 @@ class TeamService
         private UserMapper $userMapper,
         private IUserManager $userManager,
         private ProjectTeamMapper $projectTeamMapper,
+        private ?IEventDispatcher $eventDispatcher = null,
     ) {
     }
 
@@ -66,6 +72,7 @@ class TeamService
         $this->memberMapper->removeTeam($team->getId(), $organizationId);
         $this->projectTeamMapper->removeForTeam($organizationId, $team->getId());
         $this->teamMapper->delete($team);
+        $this->eventDispatcher?->dispatchTyped(new TeamDeletedEvent($organizationId, $teamId));
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -81,11 +88,15 @@ class TeamService
         if ($project === null) {
             throw new OCSNotFoundException('Project does not exist in this organization');
         }
+        $previousTeamId = $this->projectTeamMapper->findTeamIdForProject($organizationId, $projectId);
         if ($teamId !== null) {
             $this->get($organizationId, $teamId);
             $this->projectTeamMapper->assign($organizationId, $projectId, $teamId, $createdBy, gmdate('Y-m-d H:i:s'));
         } else {
             $this->projectTeamMapper->unassign($organizationId, $projectId);
+        }
+        if ($previousTeamId !== $teamId) {
+            $this->eventDispatcher?->dispatchTyped(new ProjectTeamChangedEvent($organizationId, $projectId, $previousTeamId, $teamId));
         }
         return $this->projectTeamMapper->findByOrganization($organizationId);
     }
@@ -109,6 +120,7 @@ class TeamService
         }
         if (!$this->memberMapper->hasMember($team->getId(), $organizationId, $userId)) {
             $this->memberMapper->add($team->getId(), $organizationId, $userId);
+            $this->eventDispatcher?->dispatchTyped(new TeamMemberAddedEvent($organizationId, $team->getId(), $userId));
         }
         return $this->payload($team, $organizationId);
     }
@@ -117,9 +129,11 @@ class TeamService
     public function removeMember(int $organizationId, int $teamId, string $userId): array
     {
         $team = $this->get($organizationId, $teamId);
-        if ($this->memberMapper->remove($team->getId(), $organizationId, trim($userId)) === 0) {
+        $userId = trim($userId);
+        if ($this->memberMapper->remove($team->getId(), $organizationId, $userId) === 0) {
             throw new OCSNotFoundException('Team member not found');
         }
+        $this->eventDispatcher?->dispatchTyped(new TeamMemberRemovedEvent($organizationId, $team->getId(), $userId));
         return $this->payload($team, $organizationId);
     }
 

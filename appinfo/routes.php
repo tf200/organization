@@ -7,6 +7,8 @@
 return [
     'routes' => [
         ['name' => 'Page#index', 'url' => '/', 'verb' => 'GET'],
+        ['name' => 'Invite#show', 'url' => '/invite/{token}', 'verb' => 'GET'],
+        ['name' => 'Invite#accept', 'url' => '/invite/{token}/accept', 'verb' => 'POST'],
         ['name' => 'BackupDownload#download', 'url' => '/organizations/{organizationId}/backups/jobs/{jobId}/download', 'verb' => 'GET'],
         ['name' => 'Contract#download', 'url' => '/organizations/{organizationId}/contracts/{contractId}/download', 'verb' => 'GET'],
         ['name' => 'Contract#signedDownload', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests/{requestId}/download', 'verb' => 'GET'],

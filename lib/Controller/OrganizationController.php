@@ -35,6 +35,7 @@ use OCA\Organization\Service\OrganizationAdminService;
 use OCA\Organization\Service\OrganizationService;
 use OCA\Organization\Service\PlanEntitlementValidator;
 use OCA\Organization\Service\SubscriptionService;
+use OCA\Organization\Service\ExternalCollaboratorService;
 use OCA\Organization\Service\TeamService;
 use OCA\Organization\Service\TrialOrganizationService;
 
@@ -60,6 +61,7 @@ class OrganizationController extends OCSController
         private TrialOrganizationService $trialOrganizationService,
         private SubscriptionHistoryMapper $subscriptionHistoryMapper,
         private TeamService $teamService,
+        private ExternalCollaboratorService $externalCollaboratorService,
         private IUserManager $userManager,
         private IGroupManager $groupManager,
         private IUserSession $userSession,
@@ -232,7 +234,7 @@ class OrganizationController extends OCSController
 
                 // Check if user already belongs to another organization
                 $membership = $this->userMapper->getOrganizationMembership($uid);
-                if ($membership !== null) {
+                if ($membership !== null || $this->externalCollaboratorService->isExternal($uid)) {
                     continue;
                 }
 
@@ -289,6 +291,10 @@ class OrganizationController extends OCSController
             return new DataResponse([
                 'members' => $this->buildMembersPayload($organizationId),
             ]);
+        }
+
+        if ($this->externalCollaboratorService->isExternal($userId)) {
+            throw new OCSException('External collaborators cannot become organization members', 104);
         }
 
         $this->assertMemberCapacityAvailable($organizationId);
@@ -951,9 +957,9 @@ class OrganizationController extends OCSController
         }
 
         $maxMembers = (int) $plan->getMaxMembers();
-        $currentMembers = $this->userMapper->countUsersInOrganization($organizationId);
+        $usedSeats = $this->externalCollaboratorService->countUsedSeats($organizationId);
 
-        if ($currentMembers >= $maxMembers) {
+        if ($usedSeats >= $maxMembers) {
             throw new OCSForbiddenException('Organization member limit reached for current subscription plan');
         }
     }

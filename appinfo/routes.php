@@ -9,6 +9,7 @@ return [
         ['name' => 'Page#index', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'Invite#show', 'url' => '/invite/{token}', 'verb' => 'GET'],
         ['name' => 'Invite#accept', 'url' => '/invite/{token}/accept', 'verb' => 'POST'],
+        ['name' => 'Invite#requestLink', 'url' => '/invite/{token}/request', 'verb' => 'POST'],
         ['name' => 'BackupDownload#download', 'url' => '/organizations/{organizationId}/backups/jobs/{jobId}/download', 'verb' => 'GET'],
         ['name' => 'Contract#download', 'url' => '/organizations/{organizationId}/contracts/{contractId}/download', 'verb' => 'GET'],
         ['name' => 'Contract#signedDownload', 'url' => '/organizations/{organizationId}/contracts/{contractId}/signature-requests/{requestId}/download', 'verb' => 'GET'],
@@ -48,6 +49,7 @@ return [
 
         // External collaborators
         ['root' => '/apps/organization', 'name' => 'External#index', 'url' => '/organizations/{organizationId}/externals', 'verb' => 'GET'],
+        ['root' => '/apps/organization', 'name' => 'External#activity', 'url' => '/organizations/{organizationId}/externals/activity', 'verb' => 'GET'],
 
         // Teams
         ['root' => '/apps/organization', 'name' => 'Team#index', 'url' => '/organizations/{organizationId}/teams', 'verb' => 'GET'],

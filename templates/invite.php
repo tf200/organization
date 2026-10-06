@@ -5,7 +5,21 @@
  */
 ?>
 <div class="guest-box organization-invite" style="text-align: start; max-width: 420px;">
-<?php if ($_['invalid']): ?>
+<?php if ($_['invalid'] && $_['deadLink'] === 'accepted'): ?>
+	<h2><?php p($l->t('You already accepted this invitation')); ?></h2>
+	<p><?php p($l->t('Sign in with your email address and the password you chose.')); ?></p>
+	<a class="button primary" href="<?php p($_['loginUrl']); ?>" style="display: block; text-align: center; margin-top: 16px;"><?php p($l->t('Sign in')); ?></a>
+<?php elseif ($_['invalid'] && $_['deadLink'] === 'requested'): ?>
+	<h2><?php p($l->t('We asked for a new link')); ?></h2>
+	<p><?php p($l->t('The person who invited you has been told. When they send it again, the new link arrives at the email address they invited.')); ?></p>
+<?php elseif ($_['invalid'] && $_['deadLink'] === 'requestable'): ?>
+	<h2><?php p($l->t('This link has expired')); ?></h2>
+	<p><?php p($l->t('Invitation links work for 7 days, and a newer invitation replaces the older link. Your invitation is still open, so you can ask for a new link.')); ?></p>
+	<form method="post" action="<?php p($_['requestUrl']); ?>" style="margin-top: 16px;">
+		<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
+		<button type="submit" class="primary" style="width: 100%;"><?php p($l->t('Ask for a new link')); ?></button>
+	</form>
+<?php elseif ($_['invalid']): ?>
 	<h2><?php p($l->t('This invitation is no longer valid')); ?></h2>
 	<p><?php p($l->t('The link was already used, has expired or was replaced by a newer one. Ask the person who invited you to send a new invitation.')); ?></p>
 <?php else: ?>

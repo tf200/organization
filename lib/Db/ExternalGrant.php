@@ -46,6 +46,7 @@ class ExternalGrant extends Entity implements \JsonSerializable
     public const STATUS_ACTIVE = 'active';
     public const STATUS_EXPIRED = 'expired';
     public const STATUS_REVOKED = 'revoked';
+    public const STATUSES = [self::STATUS_PENDING, self::STATUS_ACTIVE, self::STATUS_EXPIRED, self::STATUS_REVOKED];
 
     public ?int $organizationId = null;
     public ?int $projectId = null;

@@ -240,6 +240,20 @@ export interface ExternalCollaborator {
 	}>
 }
 
+export interface ExternalActivity {
+	id: number
+	organizationId: number | null
+	projectId: number | null
+	userId: string
+	actorId: string | null
+	action: string
+	details: Record<string, unknown> | null
+	createdAt: string
+	displayName: string
+	actorName: string | null
+	projectName: string | null
+}
+
 export interface ExternalSeats {
 	used: number
 	max: number | null

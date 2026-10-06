@@ -1295,6 +1295,7 @@ class OrganizationBackupService
         $counts = [
             'organization' => 1,
             'members' => 0,
+            'externals' => 0,
             'subscriptions' => 0,
             'projects' => 0,
             'deckBoards' => 0,
@@ -1382,6 +1383,17 @@ class OrganizationBackupService
         $planIds = array_values(array_unique(array_filter(array_map(static fn (array $row): int => isset($row['plan_id']) ? (int) $row['plan_id'] : 0, $subscriptions), static fn (int $id): bool => $id > 0)));
         $plans = $planIds === [] ? [] : $this->fetchAllWhereInInt('plans', 'id', $planIds);
         $this->addJsonFile($zip, 'db/plans.json', $plans);
+
+        // Grants are the organization's own; the external accounts are shared
+        // with other organizations, so they are kept for reference only.
+        $externalGrants = $this->db->tableExists('organization_project_externals')
+            ? $this->fetchAllWhereInt('organization_project_externals', 'organization_id', $organizationId)
+            : [];
+        $externalUids = array_values(array_unique(array_map(static fn (array $row): string => (string) ($row['user_uid'] ?? ''), $externalGrants)));
+        $externals = $this->fetchExternalsByUid($externalUids);
+        $counts['externals'] = count($externalUids);
+        $this->addJsonFile($zip, 'db/external_grants.json', $externalGrants);
+        $this->addJsonFile($zip, 'db/externals.json', $externals);
 
         return [
             'organization' => $orgRow,
@@ -2542,6 +2554,7 @@ class OrganizationBackupService
             '## Counts',
             '',
             sprintf('- Members: %d', (int) ($counts['members'] ?? 0)),
+            sprintf('- External collaborators: %d', (int) ($counts['externals'] ?? 0)),
             sprintf('- Subscriptions: %d', (int) ($counts['subscriptions'] ?? 0)),
             sprintf('- Projects: %d', (int) ($counts['projects'] ?? 0)),
             sprintf('- Deck boards: %d', (int) ($counts['deckBoards'] ?? 0)),
@@ -2769,6 +2782,31 @@ class OrganizationBackupService
 
         $rows = $result->fetchAll();
         $result->closeCursor();
+
+        return $rows;
+    }
+
+    /**
+     * @param list<string> $userUids
+     * @return list<array<string,mixed>>
+     */
+    private function fetchExternalsByUid(array $userUids): array
+    {
+        $userUids = array_values(array_filter($userUids, static fn (string $uid): bool => $uid !== ''));
+        if ($userUids === [] || !$this->db->tableExists('organization_externals')) {
+            return [];
+        }
+
+        $rows = [];
+        foreach (array_chunk($userUids, 500) as $chunk) {
+            $qb = $this->db->getQueryBuilder();
+            $result = $qb->select('*')
+                ->from('organization_externals')
+                ->where($qb->expr()->in('user_uid', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_STR_ARRAY)))
+                ->executeQuery();
+            $rows = array_merge($rows, $result->fetchAll());
+            $result->closeCursor();
+        }
 
         return $rows;
     }

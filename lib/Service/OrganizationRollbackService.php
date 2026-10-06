@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\Organization\Service;
 
+use OCA\Organization\Event\ExternalGrantActivatedEvent;
+use OCA\Organization\Event\ExternalGrantRevokedEvent;
 use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Files\IRootFolder;
 use OCP\IDBConnection;
 use OCP\ITempManager;
@@ -60,6 +63,7 @@ class OrganizationRollbackService
         private IRootFolder $rootFolder,
         private LoggerInterface $logger,
         private ?OrganizationGroupService $organizationGroupService = null,
+        private ?IEventDispatcher $eventDispatcher = null,
     ) {
     }
 
@@ -688,6 +692,8 @@ class OrganizationRollbackService
                     'subscriptions' => $this->readJsonFromZip($zip, 'db/subscriptions.json', []),
                     'subscriptionsHistory' => $this->readJsonFromZip($zip, 'db/subscriptions_history.json', []),
                     'plans' => $this->readJsonFromZip($zip, 'db/plans.json', []),
+                    // Null for archives made before externals existed: their grants stay as they are.
+                    'externalGrants' => $this->readJsonFromZip($zip, 'db/external_grants.json', null),
                     'customProjects' => $this->readJsonFromZip($zip, 'db/projectcreator/custom_projects.json', []),
                     'projectTimeline' => $this->readJsonFromZip($zip, 'db/projectcreator/project_timeline_items.json', []),
                     'projectNotesPublic' => $this->readJsonFromZip($zip, 'db/projectcreator/project_notes_public.json', []),
@@ -861,6 +867,14 @@ class OrganizationRollbackService
             }
         }
 
+        $externalGrants = is_array($db['externalGrants'] ?? null) ? $db['externalGrants'] : null;
+        $skippedExternals = $externalGrants === null ? [] : $this->findGoneExternals($externalGrants);
+        if ($externalGrants === null) {
+            $warnings[] = 'The archive predates external collaborators; their current access is kept';
+        } elseif ($skippedExternals !== []) {
+            $warnings[] = sprintf('Access of %d deleted external account(s) is not restored: %s', count($skippedExternals), implode(', ', $skippedExternals));
+        }
+
         $deckBundles = is_array($db['deckBundles'] ?? null) ? $db['deckBundles'] : [];
         $requiredTables = [];
         if ($subscriptions !== [] || is_array($db['subscriptionsHistory'] ?? null) && $db['subscriptionsHistory'] !== []) {
@@ -892,6 +906,7 @@ class OrganizationRollbackService
             'warnings' => array_values(array_unique($warnings)),
             'impact' => [
                 'members' => count($restoredMembers),
+                'externalGrants' => $externalGrants === null ? 0 : count($externalGrants) - $this->countGrantsOf($externalGrants, $skippedExternals),
                 'subscriptions' => count($subscriptions),
                 'projects' => count($customProjects),
                 'deckBoards' => count($deckBundles),
@@ -1085,10 +1100,13 @@ class OrganizationRollbackService
             $subscriptionsResult = $this->restoreSubscriptions($organizationId, $db);
             $projectResult = $this->restoreProjectCreatorData($organizationId, $db);
             $deckResult = $this->restoreDeckData($organizationId, $db, $projectResult);
+            $externalsResult = $this->restoreExternalGrants($organizationId, $db);
 
             $this->db->commit();
             // Members may have joined or left with the restore.
             $this->organizationGroupService?->syncAll();
+            $this->reconcileExternalAccess($externalsResult['before'], $externalsResult['after']);
+            unset($externalsResult['before'], $externalsResult['after']);
 
             return [
                 'organization' => $organizationResult,
@@ -1096,11 +1114,165 @@ class OrganizationRollbackService
                 'subscriptions' => $subscriptionsResult,
                 'projectCreator' => $projectResult,
                 'deck' => $deckResult,
+                'externals' => $externalsResult,
             ];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Puts the organization's external grants back as they were. Grants of
+     * accounts deleted since the backup are left out, as there is nobody to
+     * give them back to.
+     *
+     * @param array<string,mixed> $db
+     * @return array{replaced: int, skipped: list<string>, before: array<string,array<string,mixed>>, after: array<string,array<string,mixed>>}
+     */
+    private function restoreExternalGrants(int $organizationId, array $db): array
+    {
+        $grants = is_array($db['externalGrants'] ?? null) ? $db['externalGrants'] : null;
+        if ($grants === null || !$this->tableExists('organization_project_externals')) {
+            return ['replaced' => 0, 'skipped' => [], 'before' => [], 'after' => []];
+        }
+
+        $before = $this->activeExternalGrants($organizationId);
+        $skipped = $this->findGoneExternals($grants);
+
+        $delete = $this->db->getQueryBuilder();
+        $delete->delete('organization_project_externals')
+            ->where($delete->expr()->eq('organization_id', $delete->createNamedParameter($organizationId, IQueryBuilder::PARAM_INT)))
+            ->executeStatement();
+
+        $rows = [];
+        foreach ($grants as $grant) {
+            if (!is_array($grant) || in_array((string) ($grant['user_uid'] ?? ''), $skipped, true)) {
+                continue;
+            }
+            $grant['organization_id'] = $organizationId;
+            $rows[] = $grant;
+        }
+        $inserted = $this->insertRows('organization_project_externals', $rows);
+
+        return [
+            'replaced' => $inserted,
+            'skipped' => $skipped,
+            'before' => $before,
+            'after' => $this->activeExternalGrants($organizationId),
+        ];
+    }
+
+    /**
+     * Active grants keyed by project and user.
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function activeExternalGrants(int $organizationId): array
+    {
+        $active = [];
+        foreach ($this->fetchAllWhereInt('organization_project_externals', 'organization_id', $organizationId) as $row) {
+            if (($row['status'] ?? '') === 'active') {
+                $active[$row['project_id'] . ':' . $row['user_uid']] = $row;
+            }
+        }
+        return $active;
+    }
+
+    /**
+     * Takes externals off projects they no longer have access to after the
+     * restore, and puts back those who have it again.
+     *
+     * @param array<string,array<string,mixed>> $before
+     * @param array<string,array<string,mixed>> $after
+     */
+    private function reconcileExternalAccess(array $before, array $after): void
+    {
+        if ($this->eventDispatcher === null) {
+            return;
+        }
+
+        foreach (array_diff_key($before, $after) as $row) {
+            $this->dispatchSafely(new ExternalGrantRevokedEvent(
+                (int) $row['organization_id'],
+                (int) $row['project_id'],
+                (string) $row['user_uid'],
+                ExternalGrantRevokedEvent::REASON_REVOKED,
+            ));
+        }
+        foreach (array_diff_key($after, $before) as $row) {
+            $this->dispatchSafely(new ExternalGrantActivatedEvent(
+                (int) $row['organization_id'],
+                (int) $row['project_id'],
+                (string) $row['user_uid'],
+                $this->decodeList($row['functional_role_keys'] ?? null),
+                $this->decodeList($row['drasci_roles'] ?? null),
+            ));
+        }
+    }
+
+    private function dispatchSafely(ExternalGrantActivatedEvent|ExternalGrantRevokedEvent $event): void
+    {
+        try {
+            $this->eventDispatcher?->dispatchTyped($event);
+        } catch (\Throwable $e) {
+            $this->logger->error('Rollback could not update the project membership of an external collaborator', [
+                'projectId' => $event->getProjectId(),
+                'userId' => $event->getUserId(),
+                'exception' => $e,
+            ]);
+        }
+    }
+
+    /** @return string[] */
+    private function decodeList(mixed $json): array
+    {
+        $decoded = is_string($json) && $json !== '' ? json_decode($json, true) : [];
+        return is_array($decoded) ? array_values(array_map('strval', $decoded)) : [];
+    }
+
+    /**
+     * External accounts in the archive's grants that no longer exist.
+     *
+     * @param array<mixed> $grants
+     * @return list<string>
+     */
+    private function findGoneExternals(array $grants): array
+    {
+        $uids = [];
+        foreach ($grants as $grant) {
+            $uid = is_array($grant) ? trim((string) ($grant['user_uid'] ?? '')) : '';
+            if ($uid !== '') {
+                $uids[$uid] = true;
+            }
+        }
+        if ($uids === [] || !$this->tableExists('organization_externals')) {
+            return array_keys($uids);
+        }
+
+        $present = [];
+        foreach (array_chunk(array_keys($uids), 500) as $chunk) {
+            $qb = $this->db->getQueryBuilder();
+            $result = $qb->select('user_uid')
+                ->from('organization_externals')
+                ->where($qb->expr()->in('user_uid', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_STR_ARRAY)))
+                ->executeQuery();
+            foreach ($result->fetchAll() as $row) {
+                $present[(string) $row['user_uid']] = true;
+            }
+            $result->closeCursor();
+        }
+
+        return array_values(array_map('strval', array_keys(array_diff_key($uids, $present))));
+    }
+
+    /**
+     * @param array<mixed> $grants
+     * @param list<string> $userUids
+     */
+    private function countGrantsOf(array $grants, array $userUids): int
+    {
+        return count(array_filter($grants, static fn ($grant): bool => is_array($grant) && in_array((string) ($grant['user_uid'] ?? ''), $userUids, true)));
     }
 
     /**

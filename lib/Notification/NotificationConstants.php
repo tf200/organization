@@ -23,6 +23,7 @@ final class NotificationConstants
     public const SUBJECT_STORAGE_THRESHOLD = 'storage_threshold';
     public const SUBJECT_EXTERNAL_ACCESS_EXPIRING = 'external_access_expiring';
     public const SUBJECT_EXTERNAL_ACCESS_ENDED = 'external_access_ended';
+    public const SUBJECT_EXTERNAL_LINK_REQUESTED = 'external_link_requested';
 
     private function __construct()
     {

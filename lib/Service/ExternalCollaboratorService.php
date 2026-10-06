@@ -64,6 +64,7 @@ class ExternalCollaboratorService
         private IDBConnection $db,
         private ITimeFactory $timeFactory,
         private LoggerInterface $logger,
+        private ExternalAuditService $audit,
     ) {
     }
 
@@ -158,6 +159,12 @@ class ExternalCollaboratorService
 
         $inviteUrl = $token === null ? null : $this->inviteUrl($token);
         $emailSent = $this->sendInviteEmail($external, $organizationId, $projectId, $inviterUid, $inviteUrl);
+        $this->audit->record(ExternalAuditService::INVITED, $external->getUserUid(), $organizationId, $projectId, $inviterUid, [
+            'email' => $external->getEmail(),
+            'expiresAt' => $expiresAt?->format(DATE_ATOM),
+            'activated' => $activateNow,
+            'emailSent' => $emailSent,
+        ]);
 
         return [
             'external' => $external,
@@ -189,6 +196,40 @@ class ExternalCollaboratorService
             'external' => $external,
             'grants' => $this->grantMapper->findByUser($external->getUserUid(), [ExternalGrant::STATUS_PENDING]),
         ];
+    }
+
+    /**
+     * What a link that no longer works belonged to: an account that already
+     * accepted, an invitation that is still open and can get a new link, or
+     * nothing we can help with.
+     *
+     * @return array{state: string, external: ?External, grants: ExternalGrant[]}
+     */
+    public function describeDeadLink(string $token): array
+    {
+        $unknown = ['state' => 'unknown', 'external' => null, 'grants' => []];
+        $invite = $this->inviteMapper->findByTokenHash($this->hashToken($token));
+        $external = $invite === null ? null : $this->externalMapper->findByUserUid($invite->getUserUid());
+        if ($external === null) {
+            return $unknown;
+        }
+        if ($external->getStatus() === External::STATUS_ACTIVE) {
+            return ['state' => 'accepted', 'external' => $external, 'grants' => []];
+        }
+        if ($external->getStatus() !== External::STATUS_INVITED) {
+            return $unknown;
+        }
+
+        $now = $this->now();
+        $grants = array_values(array_filter(
+            $this->grantMapper->findByUser($external->getUserUid(), [ExternalGrant::STATUS_PENDING]),
+            static fn (ExternalGrant $grant): bool => $grant->getExpiresAt() === null || $grant->getExpiresAt() > $now,
+        ));
+        if ($grants === []) {
+            return $unknown;
+        }
+
+        return ['state' => 'requestable', 'external' => $external, 'grants' => $grants];
     }
 
     /**
@@ -244,6 +285,9 @@ class ExternalCollaboratorService
 
         foreach ($activated as $grant) {
             $this->dispatchActivated($grant);
+            $this->audit->record(ExternalAuditService::ACCEPTED, $external->getUserUid(), $grant->getOrganizationId(), $grant->getProjectId(), $external->getUserUid(), [
+                'termsAccepted' => true,
+            ]);
         }
 
         return $external;
@@ -265,6 +309,9 @@ class ExternalCollaboratorService
         $grant->setRevokedAt($now);
         $grant->setRevokedBy($revokedBy);
         $grant = $this->grantMapper->update($grant);
+        $this->audit->record(ExternalAuditService::REVOKED, $userUid, $organizationId, $projectId, $revokedBy, [
+            'accepted' => $wasActive,
+        ]);
 
         if ($this->grantMapper->findByUser($userUid, [ExternalGrant::STATUS_PENDING, ExternalGrant::STATUS_ACTIVE]) === []) {
             $this->inviteMapper->invalidateOpenForUser($userUid, $now);
@@ -301,6 +348,9 @@ class ExternalCollaboratorService
 
         $inviteUrl = $this->inviteUrl($this->createInvite($userUid, (int) $grant->getId(), $this->now()));
         $emailSent = $this->sendInviteEmail($external, $organizationId, $projectId, $senderUid, $inviteUrl);
+        $this->audit->record(ExternalAuditService::INVITE_RESENT, $userUid, $organizationId, $projectId, $senderUid, [
+            'emailSent' => $emailSent,
+        ]);
 
         return [
             'grant' => $grant,
@@ -312,16 +362,48 @@ class ExternalCollaboratorService
     /**
      * Moves the end of an open grant. A new end date may earn a new warning.
      */
-    public function changeEndDate(int $organizationId, int $projectId, string $userUid, \DateTime $expiresAt): ExternalGrant
+    public function changeEndDate(int $organizationId, int $projectId, string $userUid, \DateTime $expiresAt, ?string $changedBy = null): ExternalGrant
     {
         $grant = $this->findOpenGrant($organizationId, $projectId, $userUid);
         if ($expiresAt <= $this->now()) {
             throw new OCSBadRequestException('The end date must be in the future.');
         }
 
+        $previous = $grant->getExpiresAt();
         $grant->setExpiresAt($expiresAt);
         $grant->setWarnedAt(null);
-        return $this->grantMapper->update($grant);
+        $grant = $this->grantMapper->update($grant);
+        $this->audit->record(ExternalAuditService::END_DATE_CHANGED, $userUid, $organizationId, $projectId, $changedBy, [
+            'from' => $previous?->format(DATE_ATOM),
+            'to' => $expiresAt->format(DATE_ATOM),
+        ]);
+        return $grant;
+    }
+
+    /**
+     * Keeps the roles on an open grant in step with the project, so the
+     * external gets the same roles back if the grant is ever activated again.
+     *
+     * @param string[] $functionalRoleKeys
+     * @param string[] $drasciRoles
+     */
+    public function changeRoles(int $organizationId, int $projectId, string $userUid, array $functionalRoleKeys, array $drasciRoles, string $changedBy): ExternalGrant
+    {
+        $grant = $this->findOpenGrant($organizationId, $projectId, $userUid);
+        $before = ['functionalRoleKeys' => $grant->getFunctionalRoleKeyList(), 'drascivsRoles' => $grant->getDrasciRoleList()];
+        $grant->setFunctionalRoleKeyList($functionalRoleKeys);
+        $grant->setDrasciRoleList($drasciRoles);
+        $after = ['functionalRoleKeys' => $grant->getFunctionalRoleKeyList(), 'drascivsRoles' => $grant->getDrasciRoleList()];
+        if ($before === $after) {
+            return $grant;
+        }
+
+        $grant = $this->grantMapper->update($grant);
+        $this->audit->record(ExternalAuditService::ROLES_CHANGED, $userUid, $organizationId, $projectId, $changedBy, [
+            'from' => $before,
+            'to' => $after,
+        ]);
+        return $grant;
     }
 
     private function findOpenGrant(int $organizationId, int $projectId, string $userUid): ExternalGrant

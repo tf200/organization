@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OCA\Organization\Tests\Unit\Service;
 
 use OCA\Organization\Db\External;
+use OCA\Organization\Db\ExternalAuditEntry;
+use OCA\Organization\Db\ExternalAuditMapper;
 use OCA\Organization\Db\ExternalGrant;
 use OCA\Organization\Db\ExternalGrantMapper;
 use OCA\Organization\Db\ExternalInviteMapper;
@@ -12,6 +14,7 @@ use OCA\Organization\Db\ExternalMapper;
 use OCA\Organization\Event\ExternalGrantRevokedEvent;
 use OCA\Organization\Event\ExternalPrivateFolderReleaseEvent;
 use OCA\Organization\Notification\NotificationConstants;
+use OCA\Organization\Service\ExternalAuditService;
 use OCA\Organization\Service\ExternalCollaboratorService;
 use OCA\Organization\Service\ExternalLifecycleService;
 
@@ -54,6 +57,12 @@ class ExternalLifecycleServiceTest extends TestCase
 
     /** @var string[] */
     private array $disabledUsers = [];
+
+    /** @var ExternalAuditEntry[] */
+    private array $audit = [];
+
+    /** What describeDeadLink answers. */
+    private array $deadLink = ['state' => 'unknown', 'external' => null, 'grants' => []];
 
     /** @var string[] */
     private array $deletedUsers = [];
@@ -115,6 +124,7 @@ class ExternalLifecycleServiceTest extends TestCase
 
         $collaborators = $this->createMock(ExternalCollaboratorService::class);
         $collaborators->method('projectName')->willReturn('Zuidas');
+        $collaborators->method('describeDeadLink')->willReturnCallback(fn (): array => $this->deadLink);
 
         $userManager = $this->createMock(IUserManager::class);
         $userManager->method('get')->willReturnCallback(function (string $uid): IUser {
@@ -178,7 +188,32 @@ class ExternalLifecycleServiceTest extends TestCase
             $this->createMock(IURLGenerator::class),
             $time,
             $this->createMock(LoggerInterface::class),
+            $this->auditService($time),
         );
+    }
+
+    private function auditService(ITimeFactory $time): ExternalAuditService
+    {
+        $mapper = $this->createMock(ExternalAuditMapper::class);
+        $mapper->method('insert')->willReturnCallback(function (ExternalAuditEntry $entry): ExternalAuditEntry {
+            $this->audit[] = $entry;
+            return $entry;
+        });
+        $mapper->method('findLatest')->willReturnCallback(function (string $uid, string $action): ?ExternalAuditEntry {
+            foreach (array_reverse($this->audit) as $entry) {
+                if ($entry->getUserUid() === $uid && $entry->getAction() === $action) {
+                    return $entry;
+                }
+            }
+            return null;
+        });
+        return new ExternalAuditService($mapper, $this->createMock(IEventDispatcher::class), $time, $this->createMock(LoggerInterface::class));
+    }
+
+    /** @return string[] */
+    private function auditActions(): array
+    {
+        return array_map(static fn (ExternalAuditEntry $entry): string => $entry->getAction() . ' ' . $entry->getUserUid() . ' ' . ($entry->getOrganizationId() ?? '-'), $this->audit);
     }
 
     /**
@@ -257,6 +292,9 @@ class ExternalLifecycleServiceTest extends TestCase
         $this->assertSame(ExternalGrantRevokedEvent::REASON_EXPIRED, $this->events[0]->getReason());
         $this->assertSame(['Your access to Zuidas has ended'], $this->mails);
         $this->assertSame([NotificationConstants::SUBJECT_EXTERNAL_ACCESS_ENDED], $this->notifications);
+        $this->assertSame(['expired klaas 5', 'expired klaas 5'], $this->auditActions());
+        $this->assertSame('end_date', $this->audit[0]->getDetailMap()['reason']);
+        $this->assertNull($this->audit[0]->getActorUid());
     }
 
     public function testStaleInvitesEndAndUnusedAccountsGo(): void
@@ -273,6 +311,8 @@ class ExternalLifecycleServiceTest extends TestCase
         $this->assertSame(ExternalGrant::STATUS_EXPIRED, $stale->getStatus());
         $this->assertEqualsCanonicalizing(['stale', 'cancelled'], $this->deletedUsers);
         $this->assertSame(['fresh'], array_keys($this->externals));
+        $this->assertSame(['expired stale 5', 'account_deleted stale 5', 'account_deleted cancelled 5'], $this->auditActions());
+        $this->assertSame('not_accepted', $this->audit[0]->getDetailMap()['reason']);
     }
 
     public function testReleasesFoldersThirtyDaysAfterAccessEnded(): void
@@ -313,6 +353,7 @@ class ExternalLifecycleServiceTest extends TestCase
         $this->assertSame(External::STATUS_DISABLED, $idle->getStatus());
         $this->assertNotNull($idle->getDisabledAt());
         $this->assertSame(['idle'], $this->disabledUsers);
+        $this->assertSame(['account_disabled idle 5'], $this->auditActions());
         $this->assertSame(External::STATUS_ACTIVE, $recent->getStatus());
         $this->assertSame(External::STATUS_ACTIVE, $busy->getStatus());
     }
@@ -330,5 +371,35 @@ class ExternalLifecycleServiceTest extends TestCase
 
         $this->assertSame(['gone'], $this->deletedUsers);
         $this->assertEqualsCanonicalizing(['folder', 'young'], array_keys($this->externals));
+    }
+
+    public function testANewLinkRequestTellsTheInvitersOnceADay(): void
+    {
+        $external = $this->external('waiting', External::STATUS_INVITED);
+        $this->deadLink = [
+            'state' => 'requestable',
+            'external' => $external,
+            'grants' => [
+                $this->grant('waiting', ExternalGrant::STATUS_PENDING),
+                $this->grant('waiting', ExternalGrant::STATUS_PENDING),
+            ],
+        ];
+
+        $this->assertSame('requested', $this->service->requestNewLink('old-token'));
+        $this->assertSame('already_requested', $this->service->requestNewLink('old-token'));
+
+        $this->assertSame([NotificationConstants::SUBJECT_EXTERNAL_LINK_REQUESTED, NotificationConstants::SUBJECT_EXTERNAL_LINK_REQUESTED], $this->notifications);
+        $this->assertSame(['link_requested waiting 5', 'link_requested waiting 5'], $this->auditActions());
+        $this->assertSame([], $this->mails, 'the link is never sent to whoever asked');
+    }
+
+    public function testANewLinkIsNotRequestedForAcceptedOrUnknownLinks(): void
+    {
+        $this->assertSame('unknown', $this->service->requestNewLink('guessed'));
+        $this->deadLink = ['state' => 'accepted', 'external' => $this->external('klaas', External::STATUS_ACTIVE), 'grants' => []];
+        $this->assertSame('accepted', $this->service->requestNewLink('used'));
+
+        $this->assertSame([], $this->notifications);
+        $this->assertSame([], $this->audit);
     }
 }

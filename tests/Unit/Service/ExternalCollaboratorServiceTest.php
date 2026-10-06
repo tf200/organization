@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace OCA\Organization\Tests\Unit\Service;
 
 use OCA\Organization\Db\External;
+use OCA\Organization\Db\ExternalAuditEntry;
+use OCA\Organization\Db\ExternalAuditMapper;
 use OCA\Organization\Db\ExternalGrant;
 use OCA\Organization\Db\ExternalGrantMapper;
 use OCA\Organization\Db\ExternalInvite;
@@ -18,6 +20,7 @@ use OCA\Organization\Db\SubscriptionMapper;
 use OCA\Organization\Db\UserMapper;
 use OCA\Organization\Event\ExternalGrantActivatedEvent;
 use OCA\Organization\Event\ExternalGrantRevokedEvent;
+use OCA\Organization\Service\ExternalAuditService;
 use OCA\Organization\Service\ExternalCollaboratorService;
 use OCP\AppFramework\OCS\OCSBadRequestException;
 use OCP\AppFramework\OCS\OCSException;
@@ -56,6 +59,8 @@ class ExternalCollaboratorServiceTest extends TestCase
     private IMailer $mailer;
     /** @var Event[] */
     private array $events = [];
+    /** @var ExternalAuditEntry[] */
+    private array $audit = [];
     private Subscription $subscription;
     private Plan $plan;
     private ExternalCollaboratorService $service;
@@ -127,7 +132,24 @@ class ExternalCollaboratorServiceTest extends TestCase
             $this->createMock(IDBConnection::class),
             $time,
             $this->createMock(LoggerInterface::class),
+            $this->auditService($time),
         );
+    }
+
+    private function auditService(ITimeFactory $time): ExternalAuditService
+    {
+        $mapper = $this->createMock(ExternalAuditMapper::class);
+        $mapper->method('insert')->willReturnCallback(function (ExternalAuditEntry $entry): ExternalAuditEntry {
+            $this->audit[] = $entry;
+            return $entry;
+        });
+        return new ExternalAuditService($mapper, $this->createMock(IEventDispatcher::class), $time, $this->createMock(LoggerInterface::class));
+    }
+
+    /** @return string[] action per audit entry, oldest first */
+    private function auditActions(): array
+    {
+        return array_map(static fn (ExternalAuditEntry $entry): string => $entry->getAction() . ' ' . $entry->getProjectId() . ' ' . ($entry->getActorUid() ?? 'system'), $this->audit);
     }
 
     public function testInvitingANewEmailCreatesAnAccountAndAPendingGrant(): void
@@ -156,6 +178,8 @@ class ExternalCollaboratorServiceTest extends TestCase
         $this->assertTrue($result['emailSent']);
         $this->assertNull($result['inviteUrl'], 'the link is only returned when the email failed');
         $this->assertSame([], $this->events, 'nothing is granted before the invitation is accepted');
+        $this->assertSame(['invited 39 sanne'], $this->auditActions());
+        $this->assertSame('jan@client.nl', $this->audit[0]->getDetailMap()['email']);
     }
 
     public function testInviteReturnsTheLinkWhenTheEmailCannotBeSent(): void
@@ -315,6 +339,8 @@ class ExternalCollaboratorServiceTest extends TestCase
 
         $this->assertSame(External::STATUS_ACTIVE, $external->getStatus());
         $this->assertSame([39, 41], array_map(static fn (ExternalGrantActivatedEvent $event): int => $event->getProjectId(), $this->events));
+        $this->assertSame(['accepted 39 ext_new', 'accepted 41 ext_new'], $this->auditActions());
+        $this->assertTrue($this->audit[0]->getDetailMap()['termsAccepted']);
     }
 
     public function testAcceptRefusesAUsedLink(): void
@@ -349,6 +375,8 @@ class ExternalCollaboratorServiceTest extends TestCase
         $this->assertSame('sanne', $grant->getRevokedBy());
         $this->assertCount(1, $this->events);
         $this->assertInstanceOf(ExternalGrantRevokedEvent::class, $this->events[0]);
+        $this->assertSame(['revoked 39 sanne'], $this->auditActions());
+        $this->assertTrue($this->audit[0]->getDetailMap()['accepted']);
     }
 
     public function testRevokingAPendingGrantHasNothingToRemove(): void
@@ -385,6 +413,7 @@ class ExternalCollaboratorServiceTest extends TestCase
 
         $this->assertTrue($result['emailSent']);
         $this->assertNull($result['inviteUrl']);
+        $this->assertSame(['invite_resent 39 sanne'], $this->auditActions());
     }
 
     public function testResendRefusesAnAcceptedInvitation(): void
@@ -401,10 +430,45 @@ class ExternalCollaboratorServiceTest extends TestCase
         $grant->setWarnedAt(new \DateTime('2026-10-01'));
         $this->grants->method('findByProjectAndUser')->willReturn($grant);
 
-        $updated = $this->service->changeEndDate(self::ORG, self::PROJECT, 'ext_known', new \DateTime('2027-03-31 23:59:59'));
+        $updated = $this->service->changeEndDate(self::ORG, self::PROJECT, 'ext_known', new \DateTime('2027-03-31 23:59:59', new \DateTimeZone('UTC')), 'sanne');
 
         $this->assertSame('2027-03-31', $updated->getExpiresAt()->format('Y-m-d'));
         $this->assertNull($updated->getWarnedAt());
+        $this->assertSame(['end_date_changed 39 sanne'], $this->auditActions());
+        $this->assertSame('2027-03-31T23:59:59+00:00', $this->audit[0]->getDetailMap()['to']);
+    }
+
+    public function testChangingRolesUpdatesTheGrantAndIsRecordedOnce(): void
+    {
+        $this->grants->method('findByProjectAndUser')->willReturn($this->grant('ext_known', ExternalGrant::STATUS_ACTIVE));
+
+        $grant = $this->service->changeRoles(self::ORG, self::PROJECT, 'ext_known', ['site_lead'], ['responsible'], 'sanne');
+        $this->service->changeRoles(self::ORG, self::PROJECT, 'ext_known', ['site_lead'], ['responsible'], 'sanne');
+
+        $this->assertSame(['responsible'], $grant->getDrasciRoleList());
+        $this->assertSame(['site_lead'], $grant->getFunctionalRoleKeyList());
+        $this->assertSame(['roles_changed 39 sanne'], $this->auditActions());
+    }
+
+    public function testADeadLinkTellsWhetherANewOneCanBeAskedFor(): void
+    {
+        $this->invites->method('findByTokenHash')->willReturnCallback(fn (string $hash): ?ExternalInvite => match ($hash) {
+            hash('sha256', 'expired') => $this->openInvite('ext_new'),
+            hash('sha256', 'accepted') => $this->openInvite('ext_known'),
+            default => null,
+        });
+        $this->externals->method('findByUserUid')->willReturnCallback(fn (string $uid): External => $uid === 'ext_new'
+            ? $this->external('ext_new', External::STATUS_INVITED)
+            : $this->external('ext_known', External::STATUS_ACTIVE));
+        $lapsed = $this->grant('ext_new', ExternalGrant::STATUS_PENDING, 40);
+        $lapsed->setExpiresAt(new \DateTime('2026-10-01'));
+        $this->grants->method('findByUser')->willReturn([$this->grant('ext_new', ExternalGrant::STATUS_PENDING), $lapsed]);
+
+        $expired = $this->service->describeDeadLink('expired');
+        $this->assertSame('requestable', $expired['state']);
+        $this->assertSame([39], array_map(static fn (ExternalGrant $grant): int => $grant->getProjectId(), $expired['grants']));
+        $this->assertSame('accepted', $this->service->describeDeadLink('accepted')['state']);
+        $this->assertSame('unknown', $this->service->describeDeadLink('guessed')['state']);
     }
 
     public function testChangingTheEndDateRefusesThePastAndEndedGrants(): void

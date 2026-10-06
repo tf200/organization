@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\Organization\Tests\Unit\Service;
 
+use OCA\Organization\Event\ExternalGrantActivatedEvent;
+use OCA\Organization\Event\ExternalGrantRevokedEvent;
 use OCA\Organization\Service\OrganizationRollbackService;
+use OCP\EventDispatcher\IEventDispatcher;
 use PHPUnit\Framework\TestCase;
 
 class OrganizationRollbackServiceTest extends TestCase
@@ -90,6 +93,35 @@ class OrganizationRollbackServiceTest extends TestCase
         ]]);
 
         self::assertSame('Restored Project', $path);
+    }
+
+    public function testExternalsLeaveOrRejoinProjectsAsTheRestoreDecides(): void
+    {
+        $events = [];
+        $dispatcher = $this->createMock(IEventDispatcher::class);
+        $dispatcher->method('dispatchTyped')->willReturnCallback(static function (object $event) use (&$events): void {
+            $events[] = $event;
+        });
+        (new \ReflectionProperty($this->service, 'eventDispatcher'))->setValue($this->service, $dispatcher);
+
+        $row = static fn (int $projectId, string $uid): array => [
+            'organization_id' => 5,
+            'project_id' => $projectId,
+            'user_uid' => $uid,
+            'functional_role_keys' => '["site_lead"]',
+            'drasci_roles' => '["informed"]',
+        ];
+        $before = ['39:klaas' => $row(39, 'klaas'), '39:newcomer' => $row(39, 'newcomer')];
+        $after = ['39:klaas' => $row(39, 'klaas'), '41:returning' => $row(41, 'returning')];
+
+        $this->invokePrivate('reconcileExternalAccess', [$before, $after]);
+
+        $this->assertCount(2, $events);
+        $this->assertInstanceOf(ExternalGrantRevokedEvent::class, $events[0]);
+        $this->assertSame('newcomer', $events[0]->getUserId());
+        $this->assertInstanceOf(ExternalGrantActivatedEvent::class, $events[1]);
+        $this->assertSame([41, 'returning'], [$events[1]->getProjectId(), $events[1]->getUserId()]);
+        $this->assertSame(['site_lead'], $events[1]->getFunctionalRoleKeys());
     }
 
     /**

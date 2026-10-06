@@ -151,6 +151,18 @@ final class OrganizationNotifier implements INotifier
                 $this->linkToProject($notification, $parameters);
                 return $notification;
             }
+
+            case NotificationConstants::SUBJECT_EXTERNAL_LINK_REQUESTED: {
+                $notification->setParsedSubject(
+                    $l10n->t('%1$s asks for a new invitation link to %2$s', [
+                        (string) ($parameters['externalName'] ?? ''),
+                        (string) ($parameters['projectName'] ?? ''),
+                    ])
+                );
+                $notification->setParsedMessage($l10n->t('Their invitation link no longer works. Open the project members and choose Resend.'));
+                $this->linkToProject($notification, $parameters);
+                return $notification;
+            }
         }
 
         throw new UnknownNotificationException();

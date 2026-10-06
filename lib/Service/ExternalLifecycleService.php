@@ -50,7 +50,36 @@ class ExternalLifecycleService
         private IURLGenerator $urlGenerator,
         private ITimeFactory $timeFactory,
         private LoggerInterface $logger,
+        private ExternalAuditService $audit,
     ) {
+    }
+
+    /**
+     * Someone opened an invitation link that no longer works and asks for a
+     * new one. The inviters are told so they can resend it; the link itself is
+     * never sent to whoever asked. One request a day per person.
+     *
+     * @return string 'requested', 'already_requested', 'accepted' or 'unknown'
+     */
+    public function requestNewLink(string $token): string
+    {
+        $link = $this->externals->describeDeadLink($token);
+        $external = $link['external'];
+        if ($link['state'] !== 'requestable' || $external === null) {
+            return $link['state'];
+        }
+
+        $last = $this->audit->lastOf($external->getUserUid(), ExternalAuditService::LINK_REQUESTED);
+        if ($last !== null && $last->getCreatedAt() > $this->daysFrom($this->now(), -1)) {
+            return 'already_requested';
+        }
+
+        foreach ($link['grants'] as $grant) {
+            $this->audit->record(ExternalAuditService::LINK_REQUESTED, $external->getUserUid(), $grant->getOrganizationId(), $grant->getProjectId(), null);
+            $this->notifyInviter($grant, $external, NotificationConstants::SUBJECT_EXTERNAL_LINK_REQUESTED, $this->externals->projectName($grant->getProjectId()));
+        }
+
+        return 'requested';
     }
 
     /**
@@ -93,7 +122,7 @@ class ExternalLifecycleService
         $count = 0;
         foreach ($this->grantMapper->findDue($now) as $grant) {
             $wasActive = $grant->getStatus() === ExternalGrant::STATUS_ACTIVE;
-            $this->end($grant, $now);
+            $this->end($grant, $now, 'end_date');
             if (!$wasActive) {
                 continue;
             }
@@ -132,7 +161,7 @@ class ExternalLifecycleService
         $now = $this->now();
         $count = 0;
         foreach ($this->grantMapper->findStalePending($this->daysFrom($now, -self::STALE_INVITE_DAYS)) as $grant) {
-            $this->end($grant, $now);
+            $this->end($grant, $now, 'not_accepted');
             $count++;
         }
 
@@ -196,6 +225,7 @@ class ExternalLifecycleService
             $external->setStatus(External::STATUS_DISABLED);
             $external->setDisabledAt($now);
             $this->externalMapper->update($external);
+            $this->recordForAccount(ExternalAuditService::ACCOUNT_DISABLED, $external->getUserUid());
             $count++;
         }
 
@@ -226,11 +256,17 @@ class ExternalLifecycleService
         return $count;
     }
 
-    private function end(ExternalGrant $grant, \DateTime $now): void
+    /**
+     * @param string $reason 'end_date', or 'not_accepted' for an invitation nobody took up
+     */
+    private function end(ExternalGrant $grant, \DateTime $now, string $reason): void
     {
         $grant->setStatus(ExternalGrant::STATUS_EXPIRED);
         $grant->setRevokedAt($now);
         $this->grantMapper->update($grant);
+        $this->audit->record(ExternalAuditService::EXPIRED, $grant->getUserUid(), $grant->getOrganizationId(), $grant->getProjectId(), null, [
+            'reason' => $reason,
+        ]);
 
         if (!$this->hasOpenGrant($grant->getUserUid())) {
             $this->inviteMapper->invalidateOpenForUser($grant->getUserUid(), $now);
@@ -270,16 +306,47 @@ class ExternalLifecycleService
 
     private function deleteAccount(External $external): void
     {
+        // Read before the account goes, in case its grants go with it.
+        $organizationIds = $this->organizationsOf($external->getUserUid());
         try {
             $this->userManager->get($external->getUserUid())?->delete();
             $this->inviteMapper->deleteForUser($external->getUserUid());
             $this->externalMapper->delete($external);
+            $this->recordForAccount(ExternalAuditService::ACCOUNT_DELETED, $external->getUserUid(), $organizationIds);
         } catch (Throwable $e) {
             $this->logger->error('Failed to delete an external collaborator account', [
                 'userId' => $external->getUserUid(),
                 'exception' => $e,
             ]);
         }
+    }
+
+    /**
+     * Account events are written once for every organization the external
+     * worked for, so each one's admins see them.
+     *
+     * @param ?int[] $organizationIds
+     */
+    private function recordForAccount(string $action, string $userUid, ?array $organizationIds = null): void
+    {
+        $organizationIds ??= $this->organizationsOf($userUid);
+        if ($organizationIds === []) {
+            $this->audit->record($action, $userUid, null, null, null);
+            return;
+        }
+        foreach ($organizationIds as $organizationId) {
+            $this->audit->record($action, $userUid, $organizationId, null, null);
+        }
+    }
+
+    /** @return int[] */
+    private function organizationsOf(string $userUid): array
+    {
+        $organizationIds = [];
+        foreach ($this->grantMapper->findByUser($userUid, ExternalGrant::STATUSES) as $grant) {
+            $organizationIds[$grant->getOrganizationId()] = true;
+        }
+        return array_keys($organizationIds);
     }
 
     /**

@@ -4,15 +4,28 @@ declare(strict_types=1);
 
 namespace OCA\Organization\Service;
 
+use OCA\Organization\Db\ExternalGrant;
 use OCA\Organization\Db\UserMapper;
 
 use OCP\IGroupManager;
+use OCP\IUserManager;
 
+/**
+ * Who may talk to whom. Members talk within their organization; an external
+ * collaborator talks with the people of the projects they hold a usable grant
+ * on, which are the project groups they were added to, and with the admins of
+ * the organizations that granted it.
+ */
 class TalkOrganizationPolicyService
 {
+    /** @var array<string,array{organizationIds: int[], groupIds: string[]}|null> */
+    private array $externalAccess = [];
+
     public function __construct(
         private UserMapper $userMapper,
         private IGroupManager $groupManager,
+        private ?ExternalCollaboratorService $externals = null,
+        private ?IUserManager $userManager = null,
     ) {
     }
 
@@ -31,7 +44,8 @@ class TalkOrganizationPolicyService
             return true;
         }
 
-        return $this->userMapper->getOrganizationMembership($userId) !== null;
+        return $this->userMapper->getOrganizationMembership($userId) !== null
+            || $this->getExternalAccess($userId) !== null;
     }
 
     public function getOrganizationIdForUser(?string $userId): ?int
@@ -88,9 +102,76 @@ class TalkOrganizationPolicyService
         $firstOrganizationId = $organizationIds[$firstUserId] ?? null;
         $secondOrganizationId = $organizationIds[$secondUserId] ?? null;
 
-        return $firstOrganizationId !== null
-            && $secondOrganizationId !== null
-            && $firstOrganizationId === $secondOrganizationId;
+        if ($firstOrganizationId !== null && $firstOrganizationId === $secondOrganizationId) {
+            return true;
+        }
+
+        return $this->shareProject($firstUserId, $secondOrganizationId !== null, $secondUserId)
+            || $this->shareProject($secondUserId, $firstOrganizationId !== null, $firstUserId);
+    }
+
+    /**
+     * True when $externalUserId is a usable external and $otherUserId is an
+     * admin of an organization that granted them access, or is a member or
+     * usable external in one of the external's project groups.
+     */
+    private function shareProject(string $externalUserId, bool $otherIsMember, string $otherUserId): bool
+    {
+        $access = $this->getExternalAccess($externalUserId);
+        if ($access === null) {
+            return false;
+        }
+
+        if ($otherIsMember) {
+            $membership = $this->userMapper->getOrganizationMembership($otherUserId);
+            if ($membership !== null && $membership['role'] === 'admin'
+                && in_array($membership['organization_id'], $access['organizationIds'], true)) {
+                return true;
+            }
+        } elseif ($this->getExternalAccess($otherUserId) === null) {
+            return false;
+        }
+
+        foreach ($access['groupIds'] as $groupId) {
+            if ($this->groupManager->isInGroup($otherUserId, $groupId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The organizations that granted an external access and the groups they
+     * share with project co-members, or null when the user is not an external
+     * or has no usable grant. Revoking a grant removes the external from that
+     * project's group.
+     *
+     * @return array{organizationIds: int[], groupIds: string[]}|null
+     */
+    private function getExternalAccess(string $userId): ?array
+    {
+        if (array_key_exists($userId, $this->externalAccess)) {
+            return $this->externalAccess[$userId];
+        }
+
+        $access = null;
+        $grants = $this->externals?->getUsableGrants($userId) ?? [];
+        $user = $grants === [] ? null : $this->userManager?->get($userId);
+        if ($user !== null) {
+            $access = [
+                'organizationIds' => array_values(array_unique(array_map(
+                    static fn (ExternalGrant $grant): int => $grant->getOrganizationId(),
+                    $grants,
+                ))),
+                'groupIds' => array_values(array_diff(
+                    $this->groupManager->getUserGroupIds($user),
+                    [ExternalCollaboratorService::EXTERNALS_GROUP],
+                )),
+            ];
+        }
+
+        return $this->externalAccess[$userId] = $access;
     }
 
     /**

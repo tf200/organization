@@ -32,6 +32,7 @@ use OCA\Organization\Event\OrganizationMemberRemovedEvent;
 use OCA\Organization\Service\AccountHandoverService;
 use OCA\Organization\Service\NotificationService;
 use OCA\Organization\Service\OrganizationAdminService;
+use OCA\Organization\Service\OrganizationGroupService;
 use OCA\Organization\Service\OrganizationService;
 use OCA\Organization\Service\PlanEntitlementValidator;
 use OCA\Organization\Service\SubscriptionService;
@@ -62,6 +63,7 @@ class OrganizationController extends OCSController
         private SubscriptionHistoryMapper $subscriptionHistoryMapper,
         private TeamService $teamService,
         private ExternalCollaboratorService $externalCollaboratorService,
+        private OrganizationGroupService $organizationGroupService,
         private IUserManager $userManager,
         private IGroupManager $groupManager,
         private IUserSession $userSession,
@@ -300,6 +302,7 @@ class OrganizationController extends OCSController
         $this->assertMemberCapacityAvailable($organizationId);
 
         $this->userMapper->addOrganizationToUser($userId, $organizationId, 'member');
+        $this->organizationGroupService->syncUser($userId);
         $this->notificationService->notifyOrganizationMemberAdded(
             $organizationId,
             $organization->getName(),
@@ -360,6 +363,7 @@ class OrganizationController extends OCSController
             }
 
             $this->userMapper->addOrganizationToUser($userId, $organizationId, 'member');
+            $this->organizationGroupService->syncUser($userId);
             $this->notificationService->notifyOrganizationMemberAdded(
                 $organizationId,
                 $organization->getName(),
@@ -426,6 +430,7 @@ class OrganizationController extends OCSController
             ]);
             throw new OCSException('Failed to remove organization member', 104);
         }
+        $this->organizationGroupService->syncUser($userId);
         $this->eventDispatcher->dispatchTyped(new OrganizationMemberRemovedEvent($organizationId, $userId));
         $this->notificationService->notifyOrganizationMemberRemoved(
             $organizationId,

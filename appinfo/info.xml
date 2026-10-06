@@ -41,4 +41,12 @@ This application provides organization management functionality including:
         <job>OCA\Organization\BackgroundJob\RunOrganizationBackupJob</job>
         <job>OCA\Organization\BackgroundJob\RunOrganizationRollbackJob</job>
     </background-jobs>
+    <repair-steps>
+        <post-migration>
+            <step>OCA\Organization\Migration\SyncOrganizationGroups</step>
+        </post-migration>
+    </repair-steps>
+    <commands>
+        <command>OCA\Organization\Command\IsolateExternals</command>
+    </commands>
 </info>

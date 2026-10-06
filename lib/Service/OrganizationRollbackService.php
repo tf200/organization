@@ -59,6 +59,7 @@ class OrganizationRollbackService
         private ITempManager $tempManager,
         private IRootFolder $rootFolder,
         private LoggerInterface $logger,
+        private ?OrganizationGroupService $organizationGroupService = null,
     ) {
     }
 
@@ -1086,6 +1087,8 @@ class OrganizationRollbackService
             $deckResult = $this->restoreDeckData($organizationId, $db, $projectResult);
 
             $this->db->commit();
+            // Members may have joined or left with the restore.
+            $this->organizationGroupService?->syncAll();
 
             return [
                 'organization' => $organizationResult,

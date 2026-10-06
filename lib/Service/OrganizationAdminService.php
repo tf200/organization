@@ -20,6 +20,7 @@ class OrganizationAdminService
         private IGroupManager $groupManager,
         private OrganizationMapper $organizationMapper,
         private UserMapper $userMapper,
+        private OrganizationGroupService $organizationGroupService,
     ) {
     }
 
@@ -51,6 +52,7 @@ class OrganizationAdminService
             }
 
             $this->userMapper->addOrganizationToUser($adminUserId, $organizationId, 'admin');
+            $this->organizationGroupService->syncUser($adminUserId);
 
             $orgAdminsGroup = $this->groupManager->get(self::ORGANIZATION_ADMINS_GROUP);
             if ($orgAdminsGroup === null) {

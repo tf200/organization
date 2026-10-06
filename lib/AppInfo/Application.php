@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\Organization\AppInfo;
 
+use OCA\Organization\Listener\ExternalShareGuardListener;
 use OCA\Organization\Listener\TalkAutoCompleteListener;
 use OCA\Organization\Listener\TalkRoomGuardListener;
 use OCA\Organization\Listener\UserQuotaListener;
@@ -13,6 +14,7 @@ use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 
 use OCP\Collaboration\AutoComplete\AutoCompleteFilterEvent;
+use OCP\Share\Events\BeforeShareCreatedEvent;
 use OCP\User\GetQuotaEvent;
 
 use OCA\Organization\Middleware\SubscriptionMiddleware;
@@ -42,6 +44,7 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(BeforeAttendeesAddedEvent::class, TalkRoomGuardListener::class);
         $context->registerEventListener(BeforeUserJoinedRoomEvent::class, TalkRoomGuardListener::class);
         $context->registerEventListener(GetQuotaEvent::class, UserQuotaListener::class);
+        $context->registerEventListener(BeforeShareCreatedEvent::class, ExternalShareGuardListener::class);
     }
 
     public function boot(IBootContext $context): void

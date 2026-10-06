@@ -103,4 +103,73 @@ class ExternalGrantMapper extends QBMapper
         $result->closeCursor();
         return $found;
     }
+
+    /**
+     * Active grants ending after $now and no later than $until that have not
+     * been warned about yet.
+     *
+     * @return ExternalGrant[]
+     */
+    public function findToWarn(\DateTime $now, \DateTime $until): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->eq('status', $qb->createNamedParameter(ExternalGrant::STATUS_ACTIVE)))
+            ->andWhere($qb->expr()->isNull('warned_at'))
+            ->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_DATETIME_MUTABLE)))
+            ->andWhere($qb->expr()->lte('expires_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_DATETIME_MUTABLE)));
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Pending or active grants whose end date has passed.
+     *
+     * @return ExternalGrant[]
+     */
+    public function findDue(\DateTime $now): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->in('status', $qb->createNamedParameter(
+                [ExternalGrant::STATUS_PENDING, ExternalGrant::STATUS_ACTIVE],
+                IQueryBuilder::PARAM_STR_ARRAY,
+            )))
+            ->andWhere($qb->expr()->isNotNull('expires_at'))
+            ->andWhere($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_DATETIME_MUTABLE)));
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Invitations that were never accepted and were sent before $before.
+     *
+     * @return ExternalGrant[]
+     */
+    public function findStalePending(\DateTime $before): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->eq('status', $qb->createNamedParameter(ExternalGrant::STATUS_PENDING)))
+            ->andWhere($qb->expr()->lte('invited_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_DATETIME_MUTABLE)));
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Grants that were in use, ended before $before, and whose private folder
+     * has not been handed to the project owner yet.
+     *
+     * @return ExternalGrant[]
+     */
+    public function findFoldersToRelease(\DateTime $before): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->in('status', $qb->createNamedParameter(
+                [ExternalGrant::STATUS_EXPIRED, ExternalGrant::STATUS_REVOKED],
+                IQueryBuilder::PARAM_STR_ARRAY,
+            )))
+            ->andWhere($qb->expr()->isNotNull('accepted_at'))
+            ->andWhere($qb->expr()->isNull('folder_released_at'))
+            ->andWhere($qb->expr()->lte('revoked_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_DATETIME_MUTABLE)));
+        return $this->findEntities($qb);
+    }
 }

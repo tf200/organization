@@ -37,6 +37,8 @@ use OCP\DB\Types;
  * @method void setRevokedAt(?\DateTime $revokedAt)
  * @method ?\DateTime getWarnedAt()
  * @method void setWarnedAt(?\DateTime $warnedAt)
+ * @method ?\DateTime getFolderReleasedAt()
+ * @method void setFolderReleasedAt(?\DateTime $folderReleasedAt)
  */
 class ExternalGrant extends Entity implements \JsonSerializable
 {
@@ -58,6 +60,7 @@ class ExternalGrant extends Entity implements \JsonSerializable
     public ?\DateTime $expiresAt = null;
     public ?\DateTime $revokedAt = null;
     public ?\DateTime $warnedAt = null;
+    public ?\DateTime $folderReleasedAt = null;
 
     public function __construct()
     {
@@ -74,6 +77,7 @@ class ExternalGrant extends Entity implements \JsonSerializable
         $this->addType('expiresAt', Types::DATETIME);
         $this->addType('revokedAt', Types::DATETIME);
         $this->addType('warnedAt', Types::DATETIME);
+        $this->addType('folderReleasedAt', Types::DATETIME);
     }
 
     /** @return string[] */

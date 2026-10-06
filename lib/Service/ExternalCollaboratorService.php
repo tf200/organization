@@ -119,6 +119,10 @@ class ExternalCollaboratorService
                 [$external, $createdUser] = $this->createExternal($email, $displayName, $company, $phone, $inviterUid, $now);
             }
 
+            if ($external->getStatus() === External::STATUS_DISABLED) {
+                $external = $this->reenable($external);
+            }
+
             $activateNow = $external->getStatus() === External::STATUS_ACTIVE;
             $grant = $existingGrant ?? new ExternalGrant();
             $grant->setOrganizationId($organizationId);
@@ -134,6 +138,7 @@ class ExternalCollaboratorService
             $grant->setRevokedAt(null);
             $grant->setRevokedBy(null);
             $grant->setWarnedAt(null);
+            $grant->setFolderReleasedAt(null);
             $grant = $existingGrant === null ? $this->grantMapper->insert($grant) : $this->grantMapper->update($grant);
 
             if (!$activateNow) {
@@ -399,8 +404,8 @@ class ExternalCollaboratorService
     {
         $external = $this->externalMapper->findByEmail($email);
         if ($external !== null) {
-            if (in_array($external->getStatus(), [External::STATUS_SUSPENDED, External::STATUS_DISABLED], true)) {
-                throw new OCSForbiddenException('This external account is disabled.');
+            if ($external->getStatus() === External::STATUS_SUSPENDED) {
+                throw new OCSForbiddenException('This external account is suspended.');
             }
             return $external;
         }
@@ -520,7 +525,20 @@ class ExternalCollaboratorService
         }
     }
 
-    private function dispatchActivated(ExternalGrant $grant): void
+    /**
+     * A new invitation brings back an account the clean-up job disabled. One
+     * that had accepted before gets access at once; one that never did still
+     * has to accept.
+     */
+    private function reenable(External $external): External
+    {
+        $this->userManager->get($external->getUserUid())?->setEnabled(true);
+        $external->setStatus($external->getActivatedAt() !== null ? External::STATUS_ACTIVE : External::STATUS_INVITED);
+        $external->setDisabledAt(null);
+        return $this->externalMapper->update($external);
+    }
+
+        private function dispatchActivated(ExternalGrant $grant): void
     {
         $this->eventDispatcher->dispatchTyped(new ExternalGrantActivatedEvent(
             $grant->getOrganizationId(),

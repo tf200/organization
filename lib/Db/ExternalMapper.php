@@ -62,4 +62,16 @@ class ExternalMapper extends QBMapper
         }
         return $byUid;
     }
+
+    /**
+     * @param string[] $statuses
+     * @return External[]
+     */
+    public function findByStatuses(array $statuses): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->in('status', $qb->createNamedParameter($statuses, IQueryBuilder::PARAM_STR_ARRAY)));
+        return $this->findEntities($qb);
+    }
 }

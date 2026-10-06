@@ -128,8 +128,48 @@ final class OrganizationNotifier implements INotifier
                 );
                 return $notification;
             }
+
+            case NotificationConstants::SUBJECT_EXTERNAL_ACCESS_EXPIRING: {
+                $notification->setParsedSubject(
+                    $l10n->t('Access of %1$s to %2$s ends on %3$s', [
+                        (string) ($parameters['externalName'] ?? ''),
+                        (string) ($parameters['projectName'] ?? ''),
+                        (string) ($parameters['expiresAt'] ?? ''),
+                    ])
+                );
+                $this->linkToProject($notification, $parameters);
+                return $notification;
+            }
+
+            case NotificationConstants::SUBJECT_EXTERNAL_ACCESS_ENDED: {
+                $notification->setParsedSubject(
+                    $l10n->t('Access of %1$s to %2$s has ended', [
+                        (string) ($parameters['externalName'] ?? ''),
+                        (string) ($parameters['projectName'] ?? ''),
+                    ])
+                );
+                $this->linkToProject($notification, $parameters);
+                return $notification;
+            }
         }
 
         throw new UnknownNotificationException();
+    }
+
+    /**
+     * @param array<string,mixed> $parameters
+     */
+    private function linkToProject(INotification $notification, array $parameters): void
+    {
+        $projectId = (int) ($parameters['projectId'] ?? 0);
+        if ($projectId <= 0) {
+            return;
+        }
+
+        try {
+            $notification->setLink($this->urlGenerator->linkToRouteAbsolute('projectcreatoraio.page.newProject', ['projectId' => $projectId]));
+        } catch (\Throwable) {
+            // The project app is not installed; the organization page link stays.
+        }
     }
 }

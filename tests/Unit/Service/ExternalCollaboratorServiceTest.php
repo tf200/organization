@@ -186,6 +186,43 @@ class ExternalCollaboratorServiceTest extends TestCase
         $this->assertSame(['informed'], $this->events[0]->getDrasciRoles());
     }
 
+    public function testInvitingADisabledExternalWhoAcceptedBeforeReenablesAndGrantsAtOnce(): void
+    {
+        $external = $this->external('ext_back', External::STATUS_DISABLED);
+        $external->setActivatedAt(new \DateTime('2026-01-01 00:00:00', new \DateTimeZone('UTC')));
+        $external->setDisabledAt(new \DateTime('2026-09-01 00:00:00', new \DateTimeZone('UTC')));
+        $this->externals->method('findByEmail')->willReturn($external);
+        $user = $this->createMock(IUser::class);
+        $user->expects($this->once())->method('setEnabled')->with(true);
+        $this->userManager->method('get')->with('ext_back')->willReturn($user);
+
+        $result = $this->invite('back@client.nl');
+
+        $this->assertTrue($result['activated']);
+        $this->assertSame(External::STATUS_ACTIVE, $external->getStatus());
+        $this->assertNull($external->getDisabledAt());
+    }
+
+    public function testInvitingADisabledExternalWhoNeverAcceptedSendsANewLink(): void
+    {
+        $this->externals->method('findByEmail')->willReturn($this->external('ext_never', External::STATUS_DISABLED));
+        $this->userManager->method('get')->willReturn($this->createMock(IUser::class));
+        $this->invites->expects($this->once())->method('insert')->willReturnArgument(0);
+
+        $result = $this->invite('never@client.nl');
+
+        $this->assertFalse($result['activated']);
+        $this->assertSame(ExternalGrant::STATUS_PENDING, $result['grant']->getStatus());
+    }
+
+    public function testInviteRefusesASuspendedExternal(): void
+    {
+        $this->externals->method('findByEmail')->willReturn($this->external('ext_blocked', External::STATUS_SUSPENDED));
+
+        $this->expectException(OCSForbiddenException::class);
+        $this->invite('blocked@client.nl');
+    }
+
     public function testInviteRefusesOrganizationMembers(): void
     {
         $user = $this->createConfiguredMock(IUser::class, ['getUID' => 'sanne']);

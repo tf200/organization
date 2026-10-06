@@ -23,6 +23,8 @@ use OCP\DB\Types;
  * @method void setCurrency(string $currency)
  * @method bool|null getIsPublic()
  * @method void setIsPublic(?bool $isPublic)
+ * @method ?int getExternalStorageQuota()
+ * @method void setExternalStorageQuota(?int $externalStorageQuota)
  */
 class Plan extends Entity implements \JsonSerializable
 {
@@ -41,6 +43,9 @@ class Plan extends Entity implements \JsonSerializable
     /** @var int The storage limit for each private user in bytes. */
     protected int|null $privateStoragePerUser = null;
 
+    /** @var int|null Storage per external collaborator in bytes; null uses the instance default. */
+    protected int|null $externalStorageQuota = null;
+
     /** @var float|null The price of the plan. */
     protected float|null $price = null;
 
@@ -57,6 +62,7 @@ class Plan extends Entity implements \JsonSerializable
         $this->addType('max_members', Types::INTEGER);
         $this->addType('shared_storage_per_project', Types::INTEGER);
         $this->addType('private_storage_per_user', Types::INTEGER);
+        $this->addType('external_storage_quota', Types::INTEGER);
         $this->addType('price', Types::FLOAT, true);
         $this->addType('currency', Types::STRING, true);
         $this->addType('is_public', Types::BOOLEAN, true);
@@ -71,6 +77,7 @@ class Plan extends Entity implements \JsonSerializable
             'maxMembers' => $this->maxMembers,
             'sharedStoragePerProject' => $this->sharedStoragePerProject,
             'privateStoragePerUser' => $this->privateStoragePerUser,
+            'externalStorageQuota' => $this->externalStorageQuota,
             'price' => $this->price,
             'isPublic' => $this->isPublic,
             'currency' => $this->currency,

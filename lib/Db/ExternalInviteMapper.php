@@ -41,4 +41,12 @@ class ExternalInviteMapper extends QBMapper
             ->andWhere($qb->expr()->isNull('used_at'))
             ->executeStatement();
     }
+
+    public function deleteForUser(string $userUid): void
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete($this->getTableName())
+            ->where($qb->expr()->eq('user_uid', $qb->createNamedParameter($userUid)))
+            ->executeStatement();
+    }
 }

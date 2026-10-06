@@ -98,6 +98,15 @@ class TalkRoomGuardListener implements IEventListener
             }
         }
 
+        // Talk creates a one-to-one room with only its creator and adds the
+        // other user later; both are named in the room name from the start.
+        if ($room->getType() === \OCA\Talk\Room::TYPE_ONE_TO_ONE) {
+            $namedUserIds = json_decode($room->getName(), true);
+            if (is_array($namedUserIds)) {
+                $userIds = array_merge($userIds, array_filter($namedUserIds, 'is_string'));
+            }
+        }
+
         return array_values(array_unique($userIds));
     }
 }

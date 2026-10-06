@@ -26,7 +26,12 @@ class SyncOrganizationGroups implements IRepairStep
 
     public function run(IOutput $output): void
     {
-        $count = $this->organizationGroupService->syncAll();
-        $output->info(sprintf('Synced organization groups for %d users', $count));
+        // A failed backfill must not block the upgrade; the next run catches up.
+        try {
+            $count = $this->organizationGroupService->syncAll();
+            $output->info(sprintf('Synced organization groups for %d users', $count));
+        } catch (\Throwable $e) {
+            $output->warning('Could not sync organization groups: ' . $e->getMessage());
+        }
     }
 }

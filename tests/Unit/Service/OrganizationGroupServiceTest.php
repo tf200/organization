@@ -142,11 +142,7 @@ class OrganizationGroupServiceTest extends TestCase
 
     public function testSyncAllBackfillsMembersAndDropsFormerOnes(): void
     {
-        $this->organizationMapper->method('findAll')->willReturnCallback(static function (): array {
-            $organization = new Organization();
-            $organization->setId(7);
-            return [$organization];
-        });
+        $this->organizationMapper->method('findAll')->willReturn([['id' => 7, 'name' => 'Org 7']]);
         $this->memberships = ['alice' => ['organization_id' => 7, 'role' => 'member'], 'bob' => ['organization_id' => 7, 'role' => 'admin']];
         $this->groups = ['organization-members' => ['gone'], 'organization-members-7' => ['gone']];
 

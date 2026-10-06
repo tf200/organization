@@ -76,7 +76,7 @@ class OrganizationGroupService
     {
         $userIds = [];
         foreach ($this->organizationMapper->findAll() as $organization) {
-            foreach ($this->userMapper->getOrganizationMembers((int) $organization->getId()) as $member) {
+            foreach ($this->userMapper->getOrganizationMembers((int) $organization['id']) as $member) {
                 $userIds[$member['user_uid']] = true;
             }
         }

@@ -19,6 +19,7 @@ use OCA\Organization\Db\UserMapper;
 use OCA\Organization\Event\ExternalGrantActivatedEvent;
 use OCA\Organization\Event\ExternalGrantRevokedEvent;
 use OCA\Organization\Service\ExternalCollaboratorService;
+use OCP\AppFramework\OCS\OCSBadRequestException;
 use OCP\AppFramework\OCS\OCSException;
 use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\AppFramework\OCS\OCSNotFoundException;
@@ -368,6 +369,59 @@ class ExternalCollaboratorServiceTest extends TestCase
 
         $this->expectException(OCSNotFoundException::class);
         $this->service->revoke(9, self::PROJECT, 'ext_known', 'piet');
+    }
+
+    public function testResendReplacesTheLinkOfAPendingInvitation(): void
+    {
+        $this->grants->method('findByProjectAndUser')->willReturn($this->grant('ext_new', ExternalGrant::STATUS_PENDING));
+        $this->externals->method('findByUserUid')->willReturn($this->external('ext_new', External::STATUS_INVITED));
+        $this->invites->expects($this->once())->method('invalidateOpenForUser')->with('ext_new');
+        $this->invites->expects($this->once())->method('insert')->willReturnCallback(function (ExternalInvite $invite): ExternalInvite {
+            $this->assertSame(390, $invite->getGrantId());
+            return $invite;
+        });
+
+        $result = $this->service->resend(self::ORG, self::PROJECT, 'ext_new', 'sanne');
+
+        $this->assertTrue($result['emailSent']);
+        $this->assertNull($result['inviteUrl']);
+    }
+
+    public function testResendRefusesAnAcceptedInvitation(): void
+    {
+        $this->grants->method('findByProjectAndUser')->willReturn($this->grant('ext_known', ExternalGrant::STATUS_ACTIVE));
+
+        $this->expectException(OCSBadRequestException::class);
+        $this->service->resend(self::ORG, self::PROJECT, 'ext_known', 'sanne');
+    }
+
+    public function testChangingTheEndDateAllowsANewWarning(): void
+    {
+        $grant = $this->grant('ext_known', ExternalGrant::STATUS_ACTIVE);
+        $grant->setWarnedAt(new \DateTime('2026-10-01'));
+        $this->grants->method('findByProjectAndUser')->willReturn($grant);
+
+        $updated = $this->service->changeEndDate(self::ORG, self::PROJECT, 'ext_known', new \DateTime('2027-03-31 23:59:59'));
+
+        $this->assertSame('2027-03-31', $updated->getExpiresAt()->format('Y-m-d'));
+        $this->assertNull($updated->getWarnedAt());
+    }
+
+    public function testChangingTheEndDateRefusesThePastAndEndedGrants(): void
+    {
+        $this->grants->method('findByProjectAndUser')->willReturnOnConsecutiveCalls(
+            $this->grant('ext_known', ExternalGrant::STATUS_ACTIVE),
+            $this->grant('ext_known', ExternalGrant::STATUS_REVOKED),
+        );
+
+        try {
+            $this->service->changeEndDate(self::ORG, self::PROJECT, 'ext_known', new \DateTime('2026-10-01'));
+            $this->fail('a past end date was accepted');
+        } catch (OCSBadRequestException) {
+        }
+
+        $this->expectException(OCSNotFoundException::class);
+        $this->service->changeEndDate(self::ORG, self::PROJECT, 'ext_known', new \DateTime('2027-03-31'));
     }
 
     public function testUsableGrantsSkipExpiredGrantsAndLapsedSubscriptions(): void

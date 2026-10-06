@@ -283,6 +283,58 @@ class ExternalCollaboratorService
     }
 
     /**
+     * Sends a pending invitation again with a new link; the old link stops
+     * working.
+     *
+     * @return array{grant: ExternalGrant, emailSent: bool, inviteUrl: ?string}
+     */
+    public function resend(int $organizationId, int $projectId, string $userUid, string $senderUid): array
+    {
+        $grant = $this->findOpenGrant($organizationId, $projectId, $userUid);
+        if ($grant->getStatus() !== ExternalGrant::STATUS_PENDING) {
+            throw new OCSBadRequestException('This person already accepted the invitation.');
+        }
+        $external = $this->externalMapper->findByUserUid($userUid);
+        if ($external === null) {
+            throw new OCSNotFoundException('External collaborator not found on this project.');
+        }
+
+        $inviteUrl = $this->inviteUrl($this->createInvite($userUid, (int) $grant->getId(), $this->now()));
+        $emailSent = $this->sendInviteEmail($external, $organizationId, $projectId, $senderUid, $inviteUrl);
+
+        return [
+            'grant' => $grant,
+            'emailSent' => $emailSent,
+            'inviteUrl' => $emailSent ? null : $inviteUrl,
+        ];
+    }
+
+    /**
+     * Moves the end of an open grant. A new end date may earn a new warning.
+     */
+    public function changeEndDate(int $organizationId, int $projectId, string $userUid, \DateTime $expiresAt): ExternalGrant
+    {
+        $grant = $this->findOpenGrant($organizationId, $projectId, $userUid);
+        if ($expiresAt <= $this->now()) {
+            throw new OCSBadRequestException('The end date must be in the future.');
+        }
+
+        $grant->setExpiresAt($expiresAt);
+        $grant->setWarnedAt(null);
+        return $this->grantMapper->update($grant);
+    }
+
+    private function findOpenGrant(int $organizationId, int $projectId, string $userUid): ExternalGrant
+    {
+        $grant = $this->grantMapper->findByProjectAndUser($projectId, $userUid);
+        if ($grant === null || $grant->getOrganizationId() !== $organizationId
+            || !in_array($grant->getStatus(), [ExternalGrant::STATUS_PENDING, ExternalGrant::STATUS_ACTIVE], true)) {
+            throw new OCSNotFoundException('External collaborator not found on this project.');
+        }
+        return $grant;
+    }
+
+    /**
      * @return array<int,array<string,mixed>> grants of the project with the external's profile
      */
     public function listForProject(int $projectId): array
@@ -331,6 +383,24 @@ class ExternalCollaboratorService
             }
         }
         return $usable;
+    }
+
+    /**
+     * The organizations whose projects the external can open right now.
+     *
+     * @return array<int,array{id: int, name: string}>
+     */
+    public function getHostOrganizations(string $userUid): array
+    {
+        $organizations = [];
+        foreach ($this->getUsableGrants($userUid) as $grant) {
+            $organizationId = $grant->getOrganizationId();
+            $organizations[$organizationId] ??= [
+                'id' => $organizationId,
+                'name' => $this->organizationMapper->find($organizationId)?->getName() ?? '',
+            ];
+        }
+        return array_values($organizations);
     }
 
     /**

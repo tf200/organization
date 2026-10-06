@@ -73,6 +73,7 @@ class PlanController extends OCSController
      * @param float|null $price
      * @param string|null $currency
      * @param bool|null $isPublic
+     * @param int|null $externalStorageQuota bytes per external collaborator; null uses the default
      * @return DataResponse
      * @throws OCSException
      */
@@ -85,7 +86,8 @@ class PlanController extends OCSController
         int $privateStoragePerUser,
         ?float $price = null,
         ?string $currency = 'EUR',
-        ?bool $isPublic = false
+        ?bool $isPublic = false,
+        ?int $externalStorageQuota = null
     ): DataResponse {
         try {
             $plan = $this->planService->createPlan(
@@ -96,7 +98,8 @@ class PlanController extends OCSController
                 $privateStoragePerUser,
                 $price,
                 $currency,
-                $isPublic
+                $isPublic,
+                $externalStorageQuota
             );
             return new DataResponse($plan);
         } catch (Exception $e) {
@@ -117,6 +120,7 @@ class PlanController extends OCSController
      * @param float|null $price
      * @param string|null $currency
      * @param bool|null $isPublic
+     * @param int|null $externalStorageQuota bytes per external collaborator; null uses the default
      * @return DataResponse
      * @throws OCSException
      */
@@ -130,7 +134,8 @@ class PlanController extends OCSController
         int $privateStoragePerUser,
         ?float $price = null,
         ?string $currency = 'EUR',
-        ?bool $isPublic = false
+        ?bool $isPublic = false,
+        ?int $externalStorageQuota = null
     ): DataResponse {
         try {
             $plan = $this->planService->updatePlan(
@@ -142,7 +147,10 @@ class PlanController extends OCSController
                 $privateStoragePerUser,
                 $price,
                 $currency,
-                $isPublic
+                $isPublic,
+                // Left as it is when the form did not send it; null means the default.
+                array_key_exists('externalStorageQuota', $this->request->getParams()),
+                $externalStorageQuota
             );
             try {
                 $this->eventDispatcher->dispatchTyped(EntitlementsChangedEvent::forPlan($planId));

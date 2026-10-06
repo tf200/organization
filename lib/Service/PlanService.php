@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace OCA\Organization\Service;
 
+use OCP\AppFramework\OCS\OCSBadRequestException;
 use OCP\AppFramework\OCS\OCSException;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCA\Organization\Db\Plan;
@@ -50,7 +51,8 @@ class PlanService
         int $privateStoragePerUser,
         ?float $price,
         ?string $currency,
-        ?bool $isPublic
+        ?bool $isPublic,
+        ?int $externalStorageQuota = null
     ): Plan {
         $this->entitlementValidator->validate(
             $maxMembers,
@@ -58,8 +60,9 @@ class PlanService
             $sharedStoragePerProject,
             $privateStoragePerUser,
         );
+        $this->assertExternalStorageQuota($externalStorageQuota);
 
-        return $this->planMapper->create(
+        $plan = $this->planMapper->create(
             $name,
             $maxMembers,
             $maxProjects,
@@ -69,6 +72,11 @@ class PlanService
             $currency,
             $isPublic
         );
+        if ($externalStorageQuota !== null) {
+            $plan->setExternalStorageQuota($externalStorageQuota);
+            $plan = $this->planMapper->update($plan);
+        }
+        return $plan;
     }
 
     /**
@@ -85,7 +93,9 @@ class PlanService
         int $privateStoragePerUser,
         ?float $price,
         ?string $currency,
-        ?bool $isPublic
+        ?bool $isPublic,
+        bool $changeExternalStorageQuota = false,
+        ?int $externalStorageQuota = null
     ): Plan {
         $this->entitlementValidator->validate(
             $maxMembers,
@@ -93,8 +103,12 @@ class PlanService
             $sharedStoragePerProject,
             $privateStoragePerUser,
         );
+        $this->assertExternalStorageQuota($externalStorageQuota);
 
         $plan = $this->getPlan($id);
+        if ($changeExternalStorageQuota) {
+            $plan->setExternalStorageQuota($externalStorageQuota);
+        }
         $plan->setName($name);
         $plan->setMaxMembers($maxMembers);
         $plan->setMaxProjects($maxProjects);
@@ -104,6 +118,13 @@ class PlanService
         $plan->setCurrency($currency);
         $plan->setIsPublic($isPublic);
         return $this->planMapper->update($plan);
+    }
+
+    private function assertExternalStorageQuota(?int $bytes): void
+    {
+        if ($bytes !== null && $bytes < 0) {
+            throw new OCSBadRequestException('Storage per external collaborator cannot be negative.');
+        }
     }
 
     /**

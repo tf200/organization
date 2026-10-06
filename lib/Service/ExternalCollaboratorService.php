@@ -356,6 +356,60 @@ class ExternalCollaboratorService
         }, $grants);
     }
 
+    /**
+     * Externals with a seat in the organization, one row each with the
+     * projects they are invited to, for the organization admin.
+     *
+     * @return array{externals: array<int,array<string,mixed>>, seats: array{used: int, max: ?int, externals: int}}
+     */
+    public function listForOrganization(int $organizationId): array
+    {
+        $grants = $this->grantMapper->findByOrganization($organizationId, [ExternalGrant::STATUS_PENDING, ExternalGrant::STATUS_ACTIVE]);
+        $externals = $this->externalMapper->findByUserUids(array_values(array_unique(array_map(
+            static fn (ExternalGrant $grant): string => $grant->getUserUid(),
+            $grants,
+        ))));
+
+        $rows = [];
+        $projectNames = [];
+        foreach ($grants as $grant) {
+            $userUid = $grant->getUserUid();
+            $external = $externals[$userUid] ?? null;
+            if (!isset($rows[$userUid])) {
+                $lastLogin = $this->userManager->get($userUid)?->getLastLogin() ?? 0;
+                $rows[$userUid] = [
+                    'userId' => $userUid,
+                    'displayName' => $external?->getDisplayName(),
+                    'email' => $external?->getEmail(),
+                    'company' => $external?->getCompany(),
+                    'accountStatus' => $external?->getStatus(),
+                    'lastSeenAt' => $lastLogin > 0 ? (new \DateTime('@' . $lastLogin))->format(DATE_ATOM) : null,
+                    'projects' => [],
+                ];
+            }
+            $projectId = $grant->getProjectId();
+            $projectNames[$projectId] ??= $this->projectName($projectId);
+            $rows[$userUid]['projects'][] = [
+                'projectId' => $projectId,
+                'projectName' => $projectNames[$projectId],
+                'status' => $grant->getStatus(),
+                'expiresAt' => $grant->getExpiresAt()?->format(DATE_ATOM),
+            ];
+        }
+
+        $subscription = $this->subscriptionMapper->findByOrganizationId($organizationId);
+        $plan = $subscription === null ? null : $this->planMapper->find($subscription->getPlanId());
+
+        return [
+            'externals' => array_values($rows),
+            'seats' => [
+                'used' => $this->countUsedSeats($organizationId),
+                'max' => $plan === null ? null : (int) $plan->getMaxMembers(),
+                'externals' => count($rows),
+            ],
+        ];
+    }
+
     public function isExternal(string $userUid): bool
     {
         return $this->externalMapper->findByUserUid($userUid) !== null;

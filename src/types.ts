@@ -49,6 +49,8 @@ export interface Plan {
 	maxProjects: number
 	sharedStoragePerProject: number
 	privateStoragePerUser: number
+	/** Bytes per external collaborator; null uses the instance default. */
+	externalStorageQuota?: number | null
 	price: number
 	currency: string
 	isPublic: boolean
@@ -220,4 +222,26 @@ export interface TrialSettings {
 	price: number
 	currency: string
 	planName: string
+}
+
+/** An external collaborator of an organization, with the projects they are invited to. */
+export interface ExternalCollaborator {
+	userId: string
+	displayName: string | null
+	email: string | null
+	company: string | null
+	accountStatus: 'invited' | 'active' | 'suspended' | 'disabled' | null
+	lastSeenAt: string | null
+	projects: Array<{
+		projectId: number
+		projectName: string
+		status: 'pending' | 'active'
+		expiresAt: string | null
+	}>
+}
+
+export interface ExternalSeats {
+	used: number
+	max: number | null
+	externals: number
 }

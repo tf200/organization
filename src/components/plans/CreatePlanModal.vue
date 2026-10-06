@@ -94,6 +94,12 @@
 								label="Private Storage (GB)"
 								type="number"
 								:min="0.001" />
+							<IzTextField v-model="externalStorageGB"
+								label="Storage per External (GB)"
+								type="number"
+								:min="0"
+								placeholder="1"
+								helper-text="Private storage of each external collaborator. Empty uses the default of 1 GB." />
 						</div>
 					</div>
 				</div>
@@ -148,6 +154,7 @@ const defaultForm = {
 	price: 0,
 	currency: 'EUR',
 	isPublic: true,
+	externalStorageQuota: null as number | null,
 }
 
 const form = reactive({ ...defaultForm })
@@ -156,6 +163,15 @@ const sharedStorageGB = computed({
 	get: () => parseFloat((form.sharedStoragePerProject / (1024 ** 3)).toFixed(2)),
 	set: (val) => {
 		form.sharedStoragePerProject = Math.round(val * (1024 ** 3))
+	},
+})
+
+// Empty means the instance default for external collaborators.
+const externalStorageGB = computed({
+	get: () => form.externalStorageQuota === null ? '' : String(parseFloat((form.externalStorageQuota / (1024 ** 3)).toFixed(2))),
+	set: (val: string | number) => {
+		const gb = String(val).trim() === '' ? NaN : Number(val)
+		form.externalStorageQuota = Number.isFinite(gb) && gb >= 0 ? Math.round(gb * (1024 ** 3)) : null
 	},
 })
 

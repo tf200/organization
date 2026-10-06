@@ -46,6 +46,9 @@ return [
         ['root' => '/apps/organization', 'name' => 'Organization#updateSubscription', 'url' => '/organizations/{organizationId}/subscription', 'verb' => 'PUT'],
         ['root' => '/apps/organization', 'name' => 'Organization#convertTrialToStandard', 'url' => '/organizations/{organizationId}/convert-trial', 'verb' => 'POST'],
 
+        // External collaborators
+        ['root' => '/apps/organization', 'name' => 'External#index', 'url' => '/organizations/{organizationId}/externals', 'verb' => 'GET'],
+
         // Teams
         ['root' => '/apps/organization', 'name' => 'Team#index', 'url' => '/organizations/{organizationId}/teams', 'verb' => 'GET'],
         ['root' => '/apps/organization', 'name' => 'Team#create', 'url' => '/organizations/{organizationId}/teams', 'verb' => 'POST'],

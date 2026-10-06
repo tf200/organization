@@ -6,6 +6,7 @@ import SubscriptionTab from './tabs/SubscriptionTab.vue'
 import BackupsTab from './tabs/BackupsTab.vue'
 import HandoverTab from './tabs/HandoverTab.vue'
 import TeamsTab from './tabs/TeamsTab.vue'
+import ExternalsTab from './tabs/ExternalsTab.vue'
 import { ocs } from '../../lib/api'
 import { useAsync } from '../../composables/useAsync'
 import type { Member, Organization } from '../../types'
@@ -27,7 +28,7 @@ const emit = defineEmits<{
 	changed: []
 }>()
 
-type DetailTab = 'overview' | 'members' | 'teams' | 'subscription' | 'backups' | 'handover'
+type DetailTab = 'overview' | 'members' | 'externals' | 'teams' | 'subscription' | 'backups' | 'handover'
 const activeTab = ref<DetailTab>('overview')
 
 /** The full record, fetched on first expand. Falls back to the list row. */
@@ -68,9 +69,13 @@ function onMembersUpdated(next: Member[]) {
 	emit('patch', { usercount: next.length })
 }
 
+/** Known once the External collaborators tab has loaded. */
+const externalCount = ref<number | undefined>(undefined)
+
 const tabs = computed(() => [
 	{ key: 'overview' as const, label: 'Overview', count: undefined as number | undefined },
 	{ key: 'members' as const, label: 'Members', count: members.value.length },
+	{ key: 'externals' as const, label: 'External collaborators', count: externalCount.value },
 	{ key: 'teams' as const, label: 'Teams', count: undefined as number | undefined },
 	{ key: 'subscription' as const, label: 'Subscription', count: undefined },
 	{ key: 'backups' as const, label: 'Backups', count: undefined },
@@ -111,6 +116,10 @@ const tabs = computed(() => [
 				:org="full"
 				:members="members"
 				@members-updated="onMembersUpdated" />
+
+			<ExternalsTab v-else-if="activeTab === 'externals'"
+				:org="full"
+				@counted="externalCount = $event" />
 
 			<TeamsTab v-else-if="activeTab === 'teams'"
 				:org="full"

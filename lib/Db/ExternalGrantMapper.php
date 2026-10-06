@@ -56,6 +56,20 @@ class ExternalGrantMapper extends QBMapper
      * @param string[] $statuses
      * @return ExternalGrant[]
      */
+    public function findByOrganization(int $organizationId, array $statuses): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->eq('organization_id', $qb->createNamedParameter($organizationId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->in('status', $qb->createNamedParameter($statuses, IQueryBuilder::PARAM_STR_ARRAY)))
+            ->orderBy('invited_at', 'DESC');
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * @param string[] $statuses
+     * @return ExternalGrant[]
+     */
     public function findByUser(string $userUid, array $statuses): array
     {
         $qb = $this->db->getQueryBuilder();

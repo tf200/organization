@@ -438,6 +438,32 @@ class ExternalCollaboratorServiceTest extends TestCase
         $this->assertSame([], $this->service->getUsableGrants('ext_known'));
     }
 
+    public function testOrganizationListGroupsGrantsPerExternal(): void
+    {
+        $active = $this->grant('ext_known', ExternalGrant::STATUS_ACTIVE, 39);
+        $active->setExpiresAt(new \DateTime('2027-01-31 23:59:59', new \DateTimeZone('UTC')));
+        $this->grants->method('findByOrganization')->willReturn([
+            $active,
+            $this->grant('ext_known', ExternalGrant::STATUS_PENDING, 40),
+            $this->grant('ext_new', ExternalGrant::STATUS_PENDING, 39),
+        ]);
+        $this->externals->method('findByUserUids')->willReturn([
+            'ext_known' => $this->external('ext_known', External::STATUS_ACTIVE),
+            'ext_new' => $this->external('ext_new', External::STATUS_INVITED),
+        ]);
+        $this->members->method('countUsersInOrganization')->willReturn(14);
+        $this->grants->method('countSeatHolders')->willReturn(2);
+        $this->plan->setMaxMembers(20);
+
+        $list = $this->service->listForOrganization(self::ORG);
+
+        $this->assertSame(['ext_known', 'ext_new'], array_column($list['externals'], 'userId'));
+        $this->assertSame([39, 40], array_column($list['externals'][0]['projects'], 'projectId'));
+        $this->assertSame('2027-01-31T23:59:59+00:00', $list['externals'][0]['projects'][0]['expiresAt']);
+        $this->assertNull($list['externals'][1]['lastSeenAt']);
+        $this->assertSame(['used' => 16, 'max' => 20, 'externals' => 2], $list['seats']);
+    }
+
     public function testSeatsCountMembersAndExternals(): void
     {
         $this->members->method('countUsersInOrganization')->with(self::ORG)->willReturn(14);

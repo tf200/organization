@@ -12,8 +12,6 @@ use OCP\DB\Types;
  * @method void setOrganizationId(int $organizationId)
  * @method void setName(string $name)
  * @method void setDescription(?string $description)
- * @method void setFte(float $fte)
- * @method void setProjectsPerFte(float $projectsPerFte)
  * @method void setCreatedBy(string $createdBy)
  * @method void setCreatedAt(string|\DateTime $createdAt)
  * @method void setUpdatedAt(string|\DateTime $updatedAt)
@@ -23,10 +21,6 @@ class Team extends Entity implements \JsonSerializable
     public ?int $organizationId = null;
     public ?string $name = null;
     public ?string $description = null;
-    // Capacity is counted per person now (projectcreatoraio MemberLoadService);
-    // these columns stay mapped until a migration drops them.
-    public float $fte = 1.0;
-    public float $projectsPerFte = 1.0;
     public ?string $createdBy = null;
     public ?\DateTime $createdAt = null;
     public ?\DateTime $updatedAt = null;
@@ -36,8 +30,6 @@ class Team extends Entity implements \JsonSerializable
         $this->addType('organizationId', Types::INTEGER);
         $this->addType('name', Types::STRING);
         $this->addType('description', Types::STRING);
-        $this->addType('fte', Types::FLOAT);
-        $this->addType('projectsPerFte', Types::FLOAT);
         $this->addType('createdBy', Types::STRING);
         $this->addType('createdAt', Types::DATETIME);
         $this->addType('updatedAt', Types::DATETIME);

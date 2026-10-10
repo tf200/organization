@@ -16,17 +16,11 @@ const assignmentBusy = ref<Record<number, boolean>>({})
 const assignmentErrors = ref<Record<number, string>>({})
 const showEditor = ref(false)
 const deleteTarget = ref<Team | null>(null)
-const draft = ref({ id: null as number | null, name: '', description: '', fte: 1, projectsPerFte: 1 })
+const draft = ref({ id: null as number | null, name: '', description: '' })
 const selected = ref<string[]>([])
 
 const isEditing = computed(() => draft.value.id !== null)
-const canSave = computed(() =>
-	draft.value.name.trim() !== ''
-	&& Number.isFinite(draft.value.fte)
-	&& draft.value.fte >= 0
-	&& Number.isFinite(draft.value.projectsPerFte)
-	&& draft.value.projectsPerFte > 0,
-)
+const canSave = computed(() => draft.value.name.trim() !== '')
 
 /**
  * Normalize request failures for display.
@@ -73,7 +67,7 @@ onMounted(load)
 
 /** Open an empty team editor. */
 function openCreate() {
-	draft.value = { id: null, name: '', description: '', fte: 1, projectsPerFte: 1 }
+	draft.value = { id: null, name: '', description: '' }
 	selected.value = []
 	error.value = ''
 	showEditor.value = true
@@ -88,8 +82,6 @@ function openEdit(team: Team) {
 		id: team.id,
 		name: team.name,
 		description: team.description ?? '',
-		fte: team.fte,
-		projectsPerFte: team.projectsPerFte,
 	}
 	selected.value = team.members.map((member) => member.uid)
 	error.value = ''
@@ -105,8 +97,6 @@ async function save() {
 		const body = {
 			name: draft.value.name.trim(),
 			description: draft.value.description.trim() || null,
-			fte: draft.value.fte,
-			projectsPerFte: draft.value.projectsPerFte,
 		}
 		const data = await ocs<{ team: Team }>(
 			draft.value.id === null ? `organizations/${props.org.id}/teams` : `organizations/${props.org.id}/teams/${draft.value.id}`,
@@ -146,6 +136,14 @@ async function removeTeam() {
 }
 
 const unassignedCount = computed(() => projectTeams.value.filter((project) => project.team === null).length)
+
+/**
+ * Projects assigned to a team; every member works on each of them.
+ * @param team Team to count for.
+ */
+function projectCount(team: Team): number {
+	return projectTeams.value.filter((project) => project.team?.id === team.id).length
+}
 
 /**
  * Save one project's responsible team without blocking the other rows.
@@ -203,7 +201,7 @@ async function saveAssignment(project: ProjectTeamAssignment, event: Event) {
 				</div>
 				<div class="teams__stats">
 					<span>{{ team.memberCount }} member{{ team.memberCount === 1 ? '' : 's' }}</span>
-					<span>{{ team.projectCapacity }} project capacity</span>
+					<span>{{ projectCount(team) }} project{{ projectCount(team) === 1 ? '' : 's' }}</span>
 				</div>
 				<div class="teams__actions">
 					<button class="iz-btn iz-btn--sm" type="button" @click="openEdit(team)">
@@ -293,27 +291,6 @@ async function saveAssignment(project: ProjectTeamAssignment, event: Event) {
 						v-model="draft.description"
 						class="iz-input"
 						rows="2" />
-
-					<div class="teams__fields">
-						<label class="iz-label" for="team-fte">
-							FTE
-							<input id="team-fte"
-								v-model.number="draft.fte"
-								class="iz-input"
-								type="number"
-								min="0"
-								step="any">
-						</label>
-						<label class="iz-label" for="team-projects-per-fte">
-							Projects per FTE
-							<input id="team-projects-per-fte"
-								v-model.number="draft.projectsPerFte"
-								class="iz-input"
-								type="number"
-								min="0"
-								step="any">
-						</label>
-					</div>
 
 					<fieldset class="teams__members">
 						<legend class="iz-label">
@@ -450,12 +427,6 @@ async function saveAssignment(project: ProjectTeamAssignment, event: Event) {
 	gap: 10px;
 }
 
-.teams__fields {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 10px;
-}
-
 .teams__members {
 	display: flex;
 	flex-direction: column;
@@ -469,10 +440,6 @@ async function saveAssignment(project: ProjectTeamAssignment, event: Event) {
 }
 
 @media (max-width: 600px) {
-	.teams__fields {
-		grid-template-columns: 1fr;
-	}
-
 	.teams__actions {
 		width: 100%;
 	}

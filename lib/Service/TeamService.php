@@ -36,32 +36,28 @@ class TeamService
         return array_map(fn (Team $team): array => $this->payload($team, $organizationId), $this->teamMapper->findByOrganization($organizationId));
     }
 
-    public function create(int $organizationId, string $name, ?string $description, float $fte, float $projectsPerFte, string $createdBy): array
+    public function create(int $organizationId, string $name, ?string $description, string $createdBy): array
     {
-        $this->validate($name, $fte, $projectsPerFte);
+        $this->validate($name);
         $this->assertNameAvailable($organizationId, $name);
         $now = gmdate('Y-m-d H:i:s');
         $team = new Team();
         $team->setOrganizationId($organizationId);
         $team->setName(trim($name));
         $team->setDescription($description !== null && trim($description) !== '' ? trim($description) : null);
-        $team->setFte($fte);
-        $team->setProjectsPerFte($projectsPerFte);
         $team->setCreatedBy($createdBy);
         $team->setCreatedAt($now);
         $team->setUpdatedAt($now);
         return $this->payload($this->teamMapper->insert($team), $organizationId);
     }
 
-    public function update(int $organizationId, int $teamId, string $name, ?string $description, float $fte, float $projectsPerFte): array
+    public function update(int $organizationId, int $teamId, string $name, ?string $description): array
     {
-        $this->validate($name, $fte, $projectsPerFte);
+        $this->validate($name);
         $team = $this->get($organizationId, $teamId);
         $this->assertNameAvailable($organizationId, $name, $teamId);
         $team->setName(trim($name));
         $team->setDescription($description !== null && trim($description) !== '' ? trim($description) : null);
-        $team->setFte($fte);
-        $team->setProjectsPerFte($projectsPerFte);
         $team->setUpdatedAt(gmdate('Y-m-d H:i:s'));
         return $this->payload($this->teamMapper->update($team), $organizationId);
     }
@@ -151,16 +147,10 @@ class TeamService
         return $team;
     }
 
-    private function validate(string $name, float $fte, float $projectsPerFte): void
+    private function validate(string $name): void
     {
         if (trim($name) === '') {
             throw new OCSException('Team name is required', 104);
-        }
-        if (!is_finite($fte) || $fte < 0) {
-            throw new OCSException('FTE must be a finite number greater than or equal to zero', 104);
-        }
-        if (!is_finite($projectsPerFte) || $projectsPerFte <= 0) {
-            throw new OCSException('Projects per FTE must be a finite number greater than zero', 104);
         }
     }
 

@@ -26,9 +26,6 @@ export interface Team {
 	organizationId: number
 	name: string
 	description?: string | null
-	fte: number
-	projectsPerFte: number
-	projectCapacity: number
 	createdBy: string
 	createdAt: string
 	updatedAt: string

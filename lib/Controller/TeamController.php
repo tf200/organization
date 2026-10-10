@@ -36,21 +36,21 @@ class TeamController extends OCSController
     }
 
     #[NoAdminRequired]
-    public function create(int $organizationId, string $name, ?string $description = null, float $fte = 1.0, float $projectsPerFte = 1.0): DataResponse
+    public function create(int $organizationId, string $name, ?string $description = null): DataResponse
     {
         $this->assertCanManage($organizationId);
         $user = $this->userSession->getUser();
         if ($user === null) {
             throw new OCSForbiddenException('Authentication required');
         }
-        return new DataResponse(['team' => $this->teamService->create($organizationId, $name, $description, $fte, $projectsPerFte, $user->getUID())]);
+        return new DataResponse(['team' => $this->teamService->create($organizationId, $name, $description, $user->getUID())]);
     }
 
     #[NoAdminRequired]
-    public function update(int $organizationId, int $teamId, string $name, ?string $description = null, float $fte = 1.0, float $projectsPerFte = 1.0): DataResponse
+    public function update(int $organizationId, int $teamId, string $name, ?string $description = null): DataResponse
     {
         $this->assertCanManage($organizationId);
-        return new DataResponse(['team' => $this->teamService->update($organizationId, $teamId, $name, $description, $fte, $projectsPerFte)]);
+        return new DataResponse(['team' => $this->teamService->update($organizationId, $teamId, $name, $description)]);
     }
 
     #[NoAdminRequired]

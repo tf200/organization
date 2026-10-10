@@ -23,6 +23,8 @@ class Team extends Entity implements \JsonSerializable
     public ?int $organizationId = null;
     public ?string $name = null;
     public ?string $description = null;
+    // Capacity is counted per person now (projectcreatoraio MemberLoadService);
+    // these columns stay mapped until a migration drops them.
     public float $fte = 1.0;
     public float $projectsPerFte = 1.0;
     public ?string $createdBy = null;
@@ -48,9 +50,6 @@ class Team extends Entity implements \JsonSerializable
             'organizationId' => $this->organizationId,
             'name' => $this->name,
             'description' => $this->description,
-            'fte' => $this->fte,
-            'projectsPerFte' => $this->projectsPerFte,
-            'projectCapacity' => round($this->fte * $this->projectsPerFte, 2),
             'createdBy' => $this->createdBy,
             'createdAt' => $this->createdAt?->format('Y-m-d H:i:s'),
             'updatedAt' => $this->updatedAt?->format('Y-m-d H:i:s'),

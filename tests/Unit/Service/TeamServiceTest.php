@@ -46,16 +46,10 @@ class TeamServiceTest extends TestCase
         $this->service = new TeamService($this->teams, $this->members, $this->users, $this->userManager, $this->projectTeams, $dispatcher);
     }
 
-    public function testRejectsInvalidCapacityValues(): void
+    public function testRejectsBlankName(): void
     {
         $this->expectException(OCSException::class);
-        $this->service->create(1, 'Design', null, 1.0, 0.0, 'admin');
-    }
-
-    public function testRejectsNonFiniteFte(): void
-    {
-        $this->expectException(OCSException::class);
-        $this->service->create(1, 'Design', null, INF, 1.0, 'admin');
+        $this->service->create(1, '  ', null, 'admin');
     }
 
     public function testRejectsDuplicateNameWithinOrganization(): void
@@ -68,7 +62,7 @@ class TeamServiceTest extends TestCase
             ->willReturn($existing);
 
         $this->expectException(OCSException::class);
-        $this->service->create(1, 'Design', null, 1.0, 1.0, 'admin');
+        $this->service->create(1, 'Design', null, 'admin');
     }
 
     public function testMemberMustBelongToOrganization(): void
@@ -209,8 +203,6 @@ class TeamServiceTest extends TestCase
     {
         $team = new Team();
         $team->setId($id);
-        $team->setFte(1.0);
-        $team->setProjectsPerFte(1.0);
         return $team;
     }
 }
